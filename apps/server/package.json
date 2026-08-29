@@ -10,5 +10,16 @@
     "start": "node dist/index.js",
     "test": "vitest"
   },
+  "dependencies": {
+    "@convkit/protocol": "workspace:*",
+    "fastify": "^5.12.1",
+    "@fastify/websocket": "^11.3.0",
+    "@fastify/cors": "^11.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^20.19.43",
+    "vitest": "^4.1.11"
+  },
   "license": "MIT"
 }

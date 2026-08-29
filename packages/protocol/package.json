@@ -1,0 +1,8 @@
+{
+  "name": "@convkit/protocol",
+  "version": "0.1.0",
+  "description": "Convkit protocol types",
+  "main": "src/index.ts",
+  "type": "module",
+  "license": "MIT"
+}
