@@ -122,6 +122,17 @@ export default function Home() {
     })
   }
 
+  async function resetSession() {
+    if (!session) return
+    const res = await fetch(`${SERVER}/api/v1/sessions/${session.id}/reset`, {
+      method: 'POST'
+    })
+    if (res.ok) {
+      setMessages([])
+      seenIds.current.clear()
+    }
+  }
+
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -182,7 +193,13 @@ export default function Home() {
         {session && (
           <div className="border-t border-zinc-800 pt-4">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Session</p>
-            <p className="text-[10px] text-zinc-600 break-all">{session.id}</p>
+            <p className="text-[10px] text-zinc-600 break-all mb-2">{session.id}</p>
+            <button
+              onClick={resetSession}
+              className="w-full text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-red-950 hover:text-red-400 text-zinc-400 transition-colors"
+            >
+              Reset session
+            </button>
           </div>
         )}
       </div>
