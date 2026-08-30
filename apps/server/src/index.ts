@@ -5,12 +5,17 @@ import { PROTOCOL_VERSION, ConvkitEvent } from '@convkit/protocol'
 import { createUser, getUsers, createSession, getSessionByUser, addMessage, resetSession, getSessions } from './services/session.service.js'
 import { registerBot, getBots, getActiveBot } from './services/bot.service.js'
 import { forwardToBot } from './services/webhook.service.js'
+import 'dotenv/config'
 
+const PORT = Number(process.env.PORT ?? 4000)
+const WEB_URL = process.env.WEB_URL ?? 'http://localhost:3000'
 const server = Fastify({ logger: false })
 const connectedClients = new Set<any>()
 
-await server.register(cors, { origin: 'http://localhost:3000' })
-await server.register(websocket)
+await server.register(cors, { origin: WEB_URL })
+// ...
+await server.listen({ port: PORT, host: '0.0.0.0' })
+
 
 function broadcast(event: string, data: unknown) {
   const payload = JSON.stringify({ event, data })

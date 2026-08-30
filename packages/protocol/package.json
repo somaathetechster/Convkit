@@ -4,5 +4,9 @@
   "description": "Convkit protocol types",
   "main": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
   "license": "MIT"
 }

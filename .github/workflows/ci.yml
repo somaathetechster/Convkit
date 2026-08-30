@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]  
+
+jobs:
+  ci:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Type check server
+        run: cd apps/server && npx tsc --noEmit
+
+      - name: Type check protocol
+        run: cd packages/protocol && npx tsc --noEmit
+
+      - name: Build server
+        run: cd apps/server && npx tsc
+
+      - name: Build web
+        run: cd apps/web && pnpm build
+
+      - name: Run server unit tests
+        run: cd apps/server && pnpm test --run
