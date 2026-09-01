@@ -111,7 +111,7 @@ Convkit Server (TypeScript)
 - pnpm
 
 ```bash
-git clone https://github.com/DomaniLabs/convkit.git
+git clone https://github.com/somaathetechster/convkit.git
 cd convkit
 pnpm install
 pnpm dev

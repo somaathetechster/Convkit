@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 
-const SERVER = 'http://localhost:4000'
-const WS_URL = 'ws://localhost:4000/ws'
+const SERVER = process.env.NEXT_PUBLIC_SERVER ?? 'http://localhost:4000'
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:4000/ws'
 
 interface User {
   id: string
@@ -31,11 +31,203 @@ interface WSEvent {
 
 interface UserForm {
   name: string
-  phone: string
   country: string
+  dialCode: string
 }
 
-const COUNTRIES = ['NG', 'GH', 'KE', 'ZA', 'TZ', 'UG', 'RW']
+const COUNTRIES = [
+  { code: 'AF', name: 'Afghanistan', dial: '+93', flag: '🇦🇫' },
+  { code: 'AL', name: 'Albania', dial: '+355', flag: '🇦🇱' },
+  { code: 'DZ', name: 'Algeria', dial: '+213', flag: '🇩🇿' },
+  { code: 'AD', name: 'Andorra', dial: '+376', flag: '🇦🇩' },
+  { code: 'AO', name: 'Angola', dial: '+244', flag: '🇦🇴' },
+  { code: 'AG', name: 'Antigua and Barbuda', dial: '+1', flag: '🇦🇬' },
+  { code: 'AR', name: 'Argentina', dial: '+54', flag: '🇦🇷' },
+  { code: 'AM', name: 'Armenia', dial: '+374', flag: '🇦🇲' },
+  { code: 'AU', name: 'Australia', dial: '+61', flag: '🇦🇺' },
+  { code: 'AT', name: 'Austria', dial: '+43', flag: '🇦🇹' },
+  { code: 'AZ', name: 'Azerbaijan', dial: '+994', flag: '🇦🇿' },
+  { code: 'BS', name: 'Bahamas', dial: '+1', flag: '🇧🇸' },
+  { code: 'BH', name: 'Bahrain', dial: '+973', flag: '🇧🇭' },
+  { code: 'BD', name: 'Bangladesh', dial: '+880', flag: '🇧🇩' },
+  { code: 'BB', name: 'Barbados', dial: '+1', flag: '🇧🇧' },
+  { code: 'BY', name: 'Belarus', dial: '+375', flag: '🇧🇾' },
+  { code: 'BE', name: 'Belgium', dial: '+32', flag: '🇧🇪' },
+  { code: 'BZ', name: 'Belize', dial: '+501', flag: '🇧🇿' },
+  { code: 'BJ', name: 'Benin', dial: '+229', flag: '🇧🇯' },
+  { code: 'BT', name: 'Bhutan', dial: '+975', flag: '🇧🇹' },
+  { code: 'BO', name: 'Bolivia', dial: '+591', flag: '🇧🇴' },
+  { code: 'BA', name: 'Bosnia and Herzegovina', dial: '+387', flag: '🇧🇦' },
+  { code: 'BW', name: 'Botswana', dial: '+267', flag: '🇧🇼' },
+  { code: 'BR', name: 'Brazil', dial: '+55', flag: '🇧🇷' },
+  { code: 'BN', name: 'Brunei', dial: '+673', flag: '🇧🇳' },
+  { code: 'BG', name: 'Bulgaria', dial: '+359', flag: '🇧🇬' },
+  { code: 'BF', name: 'Burkina Faso', dial: '+226', flag: '🇧🇫' },
+  { code: 'BI', name: 'Burundi', dial: '+257', flag: '🇧🇮' },
+  { code: 'CV', name: 'Cabo Verde', dial: '+238', flag: '🇨🇻' },
+  { code: 'KH', name: 'Cambodia', dial: '+855', flag: '🇰🇭' },
+  { code: 'CM', name: 'Cameroon', dial: '+237', flag: '🇨🇲' },
+  { code: 'CA', name: 'Canada', dial: '+1', flag: '🇨🇦' },
+  { code: 'CF', name: 'Central African Republic', dial: '+236', flag: '🇨🇫' },
+  { code: 'TD', name: 'Chad', dial: '+235', flag: '🇹🇩' },
+  { code: 'CL', name: 'Chile', dial: '+56', flag: '🇨🇱' },
+  { code: 'CN', name: 'China', dial: '+86', flag: '🇨🇳' },
+  { code: 'CO', name: 'Colombia', dial: '+57', flag: '🇨🇴' },
+  { code: 'KM', name: 'Comoros', dial: '+269', flag: '🇰🇲' },
+  { code: 'CG', name: 'Congo', dial: '+242', flag: '🇨🇬' },
+  { code: 'CD', name: 'Congo (DRC)', dial: '+243', flag: '🇨🇩' },
+  { code: 'CR', name: 'Costa Rica', dial: '+506', flag: '🇨🇷' },
+  { code: 'CI', name: "Côte d'Ivoire", dial: '+225', flag: '🇨🇮' },
+  { code: 'HR', name: 'Croatia', dial: '+385', flag: '🇭🇷' },
+  { code: 'CU', name: 'Cuba', dial: '+53', flag: '🇨🇺' },
+  { code: 'CY', name: 'Cyprus', dial: '+357', flag: '🇨🇾' },
+  { code: 'CZ', name: 'Czech Republic', dial: '+420', flag: '🇨🇿' },
+  { code: 'DK', name: 'Denmark', dial: '+45', flag: '🇩🇰' },
+  { code: 'DJ', name: 'Djibouti', dial: '+253', flag: '🇩🇯' },
+  { code: 'DM', name: 'Dominica', dial: '+1', flag: '🇩🇲' },
+  { code: 'DO', name: 'Dominican Republic', dial: '+1', flag: '🇩🇴' },
+  { code: 'EC', name: 'Ecuador', dial: '+593', flag: '🇪🇨' },
+  { code: 'EG', name: 'Egypt', dial: '+20', flag: '🇪🇬' },
+  { code: 'SV', name: 'El Salvador', dial: '+503', flag: '🇸🇻' },
+  { code: 'GQ', name: 'Equatorial Guinea', dial: '+240', flag: '🇬🇶' },
+  { code: 'ER', name: 'Eritrea', dial: '+291', flag: '🇪🇷' },
+  { code: 'EE', name: 'Estonia', dial: '+372', flag: '🇪🇪' },
+  { code: 'SZ', name: 'Eswatini', dial: '+268', flag: '🇸🇿' },
+  { code: 'ET', name: 'Ethiopia', dial: '+251', flag: '🇪🇹' },
+  { code: 'FJ', name: 'Fiji', dial: '+679', flag: '🇫🇯' },
+  { code: 'FI', name: 'Finland', dial: '+358', flag: '🇫🇮' },
+  { code: 'FR', name: 'France', dial: '+33', flag: '🇫🇷' },
+  { code: 'GA', name: 'Gabon', dial: '+241', flag: '🇬🇦' },
+  { code: 'GM', name: 'Gambia', dial: '+220', flag: '🇬🇲' },
+  { code: 'GE', name: 'Georgia', dial: '+995', flag: '🇬🇪' },
+  { code: 'DE', name: 'Germany', dial: '+49', flag: '🇩🇪' },
+  { code: 'GH', name: 'Ghana', dial: '+233', flag: '🇬🇭' },
+  { code: 'GR', name: 'Greece', dial: '+30', flag: '🇬🇷' },
+  { code: 'GD', name: 'Grenada', dial: '+1', flag: '🇬🇩' },
+  { code: 'GT', name: 'Guatemala', dial: '+502', flag: '🇬🇹' },
+  { code: 'GN', name: 'Guinea', dial: '+224', flag: '🇬🇳' },
+  { code: 'GW', name: 'Guinea-Bissau', dial: '+245', flag: '🇬🇼' },
+  { code: 'GY', name: 'Guyana', dial: '+592', flag: '🇬🇾' },
+  { code: 'HT', name: 'Haiti', dial: '+509', flag: '🇭🇹' },
+  { code: 'HN', name: 'Honduras', dial: '+504', flag: '🇭🇳' },
+  { code: 'HU', name: 'Hungary', dial: '+36', flag: '🇭🇺' },
+  { code: 'IS', name: 'Iceland', dial: '+354', flag: '🇮🇸' },
+  { code: 'IN', name: 'India', dial: '+91', flag: '🇮🇳' },
+  { code: 'ID', name: 'Indonesia', dial: '+62', flag: '🇮🇩' },
+  { code: 'IR', name: 'Iran', dial: '+98', flag: '🇮🇷' },
+  { code: 'IQ', name: 'Iraq', dial: '+964', flag: '🇮🇶' },
+  { code: 'IE', name: 'Ireland', dial: '+353', flag: '🇮🇪' },
+  { code: 'IL', name: 'Israel', dial: '+972', flag: '🇮🇱' },
+  { code: 'IT', name: 'Italy', dial: '+39', flag: '🇮🇹' },
+  { code: 'JM', name: 'Jamaica', dial: '+1', flag: '🇯🇲' },
+  { code: 'JP', name: 'Japan', dial: '+81', flag: '🇯🇵' },
+  { code: 'JO', name: 'Jordan', dial: '+962', flag: '🇯🇴' },
+  { code: 'KZ', name: 'Kazakhstan', dial: '+7', flag: '🇰🇿' },
+  { code: 'KE', name: 'Kenya', dial: '+254', flag: '🇰🇪' },
+  { code: 'KI', name: 'Kiribati', dial: '+686', flag: '🇰🇮' },
+  { code: 'KW', name: 'Kuwait', dial: '+965', flag: '🇰🇼' },
+  { code: 'KG', name: 'Kyrgyzstan', dial: '+996', flag: '🇰🇬' },
+  { code: 'LA', name: 'Laos', dial: '+856', flag: '🇱🇦' },
+  { code: 'LV', name: 'Latvia', dial: '+371', flag: '🇱🇻' },
+  { code: 'LB', name: 'Lebanon', dial: '+961', flag: '🇱🇧' },
+  { code: 'LS', name: 'Lesotho', dial: '+266', flag: '🇱🇸' },
+  { code: 'LR', name: 'Liberia', dial: '+231', flag: '🇱🇷' },
+  { code: 'LY', name: 'Libya', dial: '+218', flag: '🇱🇾' },
+  { code: 'LI', name: 'Liechtenstein', dial: '+423', flag: '🇱🇮' },
+  { code: 'LT', name: 'Lithuania', dial: '+370', flag: '🇱🇹' },
+  { code: 'LU', name: 'Luxembourg', dial: '+352', flag: '🇱🇺' },
+  { code: 'MG', name: 'Madagascar', dial: '+261', flag: '🇲🇬' },
+  { code: 'MW', name: 'Malawi', dial: '+265', flag: '🇲🇼' },
+  { code: 'MY', name: 'Malaysia', dial: '+60', flag: '🇲🇾' },
+  { code: 'MV', name: 'Maldives', dial: '+960', flag: '🇲🇻' },
+  { code: 'ML', name: 'Mali', dial: '+223', flag: '🇲🇱' },
+  { code: 'MT', name: 'Malta', dial: '+356', flag: '🇲🇹' },
+  { code: 'MH', name: 'Marshall Islands', dial: '+692', flag: '🇲🇭' },
+  { code: 'MR', name: 'Mauritania', dial: '+222', flag: '🇲🇷' },
+  { code: 'MU', name: 'Mauritius', dial: '+230', flag: '🇲🇺' },
+  { code: 'MX', name: 'Mexico', dial: '+52', flag: '🇲🇽' },
+  { code: 'FM', name: 'Micronesia', dial: '+691', flag: '🇫🇲' },
+  { code: 'MD', name: 'Moldova', dial: '+373', flag: '🇲🇩' },
+  { code: 'MC', name: 'Monaco', dial: '+377', flag: '🇲🇨' },
+  { code: 'MN', name: 'Mongolia', dial: '+976', flag: '🇲🇳' },
+  { code: 'ME', name: 'Montenegro', dial: '+382', flag: '🇲🇪' },
+  { code: 'MA', name: 'Morocco', dial: '+212', flag: '🇲🇦' },
+  { code: 'MZ', name: 'Mozambique', dial: '+258', flag: '🇲🇿' },
+  { code: 'MM', name: 'Myanmar', dial: '+95', flag: '🇲🇲' },
+  { code: 'NA', name: 'Namibia', dial: '+264', flag: '🇳🇦' },
+  { code: 'NR', name: 'Nauru', dial: '+674', flag: '🇳🇷' },
+  { code: 'NP', name: 'Nepal', dial: '+977', flag: '🇳🇵' },
+  { code: 'NL', name: 'Netherlands', dial: '+31', flag: '🇳🇱' },
+  { code: 'NZ', name: 'New Zealand', dial: '+64', flag: '🇳🇿' },
+  { code: 'NI', name: 'Nicaragua', dial: '+505', flag: '🇳🇮' },
+  { code: 'NE', name: 'Niger', dial: '+227', flag: '🇳🇪' },
+  { code: 'NG', name: 'Nigeria', dial: '+234', flag: '🇳🇬' },
+  { code: 'NO', name: 'Norway', dial: '+47', flag: '🇳🇴' },
+  { code: 'OM', name: 'Oman', dial: '+968', flag: '🇴🇲' },
+  { code: 'PK', name: 'Pakistan', dial: '+92', flag: '🇵🇰' },
+  { code: 'PW', name: 'Palau', dial: '+680', flag: '🇵🇼' },
+  { code: 'PA', name: 'Panama', dial: '+507', flag: '🇵🇦' },
+  { code: 'PG', name: 'Papua New Guinea', dial: '+675', flag: '🇵🇬' },
+  { code: 'PY', name: 'Paraguay', dial: '+595', flag: '🇵🇾' },
+  { code: 'PE', name: 'Peru', dial: '+51', flag: '🇵🇪' },
+  { code: 'PH', name: 'Philippines', dial: '+63', flag: '🇵🇭' },
+  { code: 'PL', name: 'Poland', dial: '+48', flag: '🇵🇱' },
+  { code: 'PT', name: 'Portugal', dial: '+351', flag: '🇵🇹' },
+  { code: 'QA', name: 'Qatar', dial: '+974', flag: '🇶🇦' },
+  { code: 'RO', name: 'Romania', dial: '+40', flag: '🇷🇴' },
+  { code: 'RU', name: 'Russia', dial: '+7', flag: '🇷🇺' },
+  { code: 'RW', name: 'Rwanda', dial: '+250', flag: '🇷🇼' },
+  { code: 'KN', name: 'Saint Kitts and Nevis', dial: '+1', flag: '🇰🇳' },
+  { code: 'LC', name: 'Saint Lucia', dial: '+1', flag: '🇱🇨' },
+  { code: 'VC', name: 'Saint Vincent and the Grenadines', dial: '+1', flag: '🇻🇨' },
+  { code: 'WS', name: 'Samoa', dial: '+685', flag: '🇼🇸' },
+  { code: 'SM', name: 'San Marino', dial: '+378', flag: '🇸🇲' },
+  { code: 'ST', name: 'São Tomé and Príncipe', dial: '+239', flag: '🇸🇹' },
+  { code: 'SA', name: 'Saudi Arabia', dial: '+966', flag: '🇸🇦' },
+  { code: 'SN', name: 'Senegal', dial: '+221', flag: '🇸🇳' },
+  { code: 'RS', name: 'Serbia', dial: '+381', flag: '🇷🇸' },
+  { code: 'SC', name: 'Seychelles', dial: '+248', flag: '🇸🇨' },
+  { code: 'SL', name: 'Sierra Leone', dial: '+232', flag: '🇸🇱' },
+  { code: 'SG', name: 'Singapore', dial: '+65', flag: '🇸🇬' },
+  { code: 'SK', name: 'Slovakia', dial: '+421', flag: '🇸🇰' },
+  { code: 'SI', name: 'Slovenia', dial: '+386', flag: '🇸🇮' },
+  { code: 'SB', name: 'Solomon Islands', dial: '+677', flag: '🇸🇧' },
+  { code: 'SO', name: 'Somalia', dial: '+252', flag: '🇸🇴' },
+  { code: 'ZA', name: 'South Africa', dial: '+27', flag: '🇿🇦' },
+  { code: 'SS', name: 'South Sudan', dial: '+211', flag: '🇸🇸' },
+  { code: 'ES', name: 'Spain', dial: '+34', flag: '🇪🇸' },
+  { code: 'LK', name: 'Sri Lanka', dial: '+94', flag: '🇱🇰' },
+  { code: 'SD', name: 'Sudan', dial: '+249', flag: '🇸🇩' },
+  { code: 'SR', name: 'Suriname', dial: '+597', flag: '🇸🇷' },
+  { code: 'SE', name: 'Sweden', dial: '+46', flag: '🇸🇪' },
+  { code: 'CH', name: 'Switzerland', dial: '+41', flag: '🇨🇭' },
+  { code: 'SY', name: 'Syria', dial: '+963', flag: '🇸🇾' },
+  { code: 'TW', name: 'Taiwan', dial: '+886', flag: '🇹🇼' },
+  { code: 'TJ', name: 'Tajikistan', dial: '+992', flag: '🇹🇯' },
+  { code: 'TZ', name: 'Tanzania', dial: '+255', flag: '🇹🇿' },
+  { code: 'TH', name: 'Thailand', dial: '+66', flag: '🇹🇭' },
+  { code: 'TL', name: 'Timor-Leste', dial: '+670', flag: '🇹🇱' },
+  { code: 'TG', name: 'Togo', dial: '+228', flag: '🇹🇬' },
+  { code: 'TO', name: 'Tonga', dial: '+676', flag: '🇹🇴' },
+  { code: 'TT', name: 'Trinidad and Tobago', dial: '+1', flag: '🇹🇹' },
+  { code: 'TN', name: 'Tunisia', dial: '+216', flag: '🇹🇳' },
+  { code: 'TR', name: 'Turkey', dial: '+90', flag: '🇹🇷' },
+  { code: 'TM', name: 'Turkmenistan', dial: '+993', flag: '🇹🇲' },
+  { code: 'TV', name: 'Tuvalu', dial: '+688', flag: '🇹🇻' },
+  { code: 'UG', name: 'Uganda', dial: '+256', flag: '🇺🇬' },
+  { code: 'UA', name: 'Ukraine', dial: '+380', flag: '🇺🇦' },
+  { code: 'AE', name: 'United Arab Emirates', dial: '+971', flag: '🇦🇪' },
+  { code: 'GB', name: 'United Kingdom', dial: '+44', flag: '🇬🇧' },
+  { code: 'US', name: 'United States', dial: '+1', flag: '🇺🇸' },
+  { code: 'UY', name: 'Uruguay', dial: '+598', flag: '🇺🇾' },
+  { code: 'UZ', name: 'Uzbekistan', dial: '+998', flag: '🇺🇿' },
+  { code: 'VU', name: 'Vanuatu', dial: '+678', flag: '🇻🇺' },
+  { code: 'VE', name: 'Venezuela', dial: '+58', flag: '🇻🇪' },
+  { code: 'VN', name: 'Vietnam', dial: '+84', flag: '🇻🇳' },
+  { code: 'YE', name: 'Yemen', dial: '+967', flag: '🇾🇪' },
+  { code: 'ZM', name: 'Zambia', dial: '+260', flag: '🇿🇲' },
+  { code: 'ZW', name: 'Zimbabwe', dial: '+263', flag: '🇿🇼' },
+]
 
 function formatTime(ts: string): string {
   const d = new Date(ts)
@@ -57,7 +249,14 @@ export default function Home() {
   const [connected, setConnected] = useState(false)
   const [wsStatus, setWsStatus] = useState('Connecting...')
   const [showUserForm, setShowUserForm] = useState(false)
-  const [userForm, setUserForm] = useState<UserForm>({ name: '', phone: '', country: 'NG' })
+  const [countrySearch, setCountrySearch] = useState('')
+  const [countryOpen, setCountryOpen] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [userForm, setUserForm] = useState<UserForm>({
+    name: '',
+    country: 'NG',
+    dialCode: '+234'
+  })
   const [loadingUser, setLoadingUser] = useState(false)
   const [loadingBot, setLoadingBot] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
@@ -65,65 +264,88 @@ export default function Home() {
   const ws = useRef<WebSocket | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const seenIds = useRef<Set<string>>(new Set())
+  const sessionsRef = useRef<Record<string, Session>>({})
+  const countryRef = useRef<HTMLDivElement>(null)
 
   const activeUser = users.find(u => u.id === activeUserId) ?? null
   const activeSession = activeUserId ? sessions[activeUserId] : null
   const activeMessages = activeUserId ? (messagesByUser[activeUserId] ?? []) : []
+  const selectedCountry = COUNTRIES.find(c => c.code === userForm.country)
+
+  const filteredCountries = countrySearch.trim() === ''
+    ? COUNTRIES
+    : COUNTRIES.filter(c =>
+        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+        c.dial.includes(countrySearch) ||
+        c.code.toLowerCase().includes(countrySearch.toLowerCase())
+      )
 
   useEffect(() => { connectWS() }, [])
+
+  useEffect(() => {
+    sessionsRef.current = sessions
+  }, [sessions])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [activeMessages])
 
+  // Close country dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
+        setCountryOpen(false)
+        setCountrySearch('')
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function selectCountry(code: string, dial: string) {
+    setUserForm(p => ({ ...p, country: code, dialCode: dial }))
+    setCountryOpen(false)
+    setCountrySearch('')
+  }
+
   function connectWS() {
     const socket = new WebSocket(WS_URL)
-
-    socket.onopen = () => {
-      setConnected(true)
-      setWsStatus('Connected')
-    }
-
+    socket.onopen = () => { setConnected(true); setWsStatus('Connected') }
     socket.onclose = () => {
       setConnected(false)
       setWsStatus('Reconnecting...')
       setTimeout(connectWS, 2000)
     }
-
     socket.onmessage = (e) => {
       let payload: WSEvent
       try { payload = JSON.parse(e.data) } catch { return }
-
       setEvents(prev => [payload, ...prev].slice(0, 100))
-
       if (payload.event === 'message.sent' || payload.event === 'message.received') {
         const msg: Message = payload.data?.message
         if (!msg?.id) return
         if (seenIds.current.has(msg.id)) return
         seenIds.current.add(msg.id)
-
         const sessionId = payload.data?.sessionId
-        const userId = Object.entries(sessions).find(([, s]) => s.id === sessionId)?.[0]
+        const userId = Object.entries(sessionsRef.current).find(([, s]) => s.id === sessionId)?.[0]
         if (!userId) return
-
-        setMessagesByUser(prev => ({
-          ...prev,
-          [userId]: [...(prev[userId] ?? []), msg]
-        }))
+        setMessagesByUser(prev => ({ ...prev, [userId]: [...(prev[userId] ?? []), msg] }))
       }
     }
-
     ws.current = socket
   }
 
   async function createUser() {
-    if (!userForm.name.trim() || !userForm.phone.trim()) return
+    if (!userForm.name.trim() || !phoneNumber.trim()) return
     setLoadingUser(true)
     try {
       const res = await fetch(`${SERVER}/api/v1/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userForm)
+        body: JSON.stringify({
+          name: userForm.name,
+          phone: `${userForm.dialCode}${phoneNumber}`,
+          country: userForm.country
+        })
       })
       const data = await res.json()
       setUsers(prev => [...prev, data.user])
@@ -131,7 +353,9 @@ export default function Home() {
       setMessagesByUser(prev => ({ ...prev, [data.user.id]: [] }))
       setActiveUserId(data.user.id)
       setShowUserForm(false)
-      setUserForm({ name: '', phone: '', country: 'NG' })
+      setUserForm({ name: '', country: 'NG', dialCode: '+234' })
+      setPhoneNumber('')
+      setCountrySearch('')
     } finally {
       setLoadingUser(false)
     }
@@ -169,9 +393,7 @@ export default function Home() {
 
   async function resetSession() {
     if (!activeSession || !activeUserId) return
-    const res = await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/reset`, {
-      method: 'POST'
-    })
+    const res = await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/reset`, { method: 'POST' })
     if (res.ok) {
       setMessagesByUser(prev => ({ ...prev, [activeUserId]: [] }))
       seenIds.current.clear()
@@ -205,9 +427,7 @@ export default function Home() {
           <button
             onClick={registerBot}
             disabled={loadingBot}
-            className={`w-full text-[11px] py-1.5 rounded transition-colors ${
-              botRegistered ? 'bg-green-950 text-green-400' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
-            } disabled:opacity-50`}
+            className={`w-full text-[11px] py-1.5 rounded transition-colors ${botRegistered ? 'bg-green-950 text-green-400' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'} disabled:opacity-50`}
           >
             {loadingBot ? 'Registering...' : botRegistered ? '✓ Bot registered' : 'Register bot'}
           </button>
@@ -218,7 +438,7 @@ export default function Home() {
           <div className="p-4 pb-2 flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500">Users</p>
             <button
-              onClick={() => setShowUserForm(v => !v)}
+              onClick={() => { setShowUserForm(v => !v); setCountryOpen(false) }}
               className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
             >
               {showUserForm ? 'Cancel' : '+ New'}
@@ -226,29 +446,75 @@ export default function Home() {
           </div>
 
           {showUserForm && (
-            <div className="mx-4 mb-3 bg-zinc-900 border border-zinc-700 rounded p-3 flex flex-col gap-2">
+            <div className="mx-3 mb-3 bg-zinc-900 border border-zinc-700 rounded p-3 flex flex-col gap-2">
+
+              {/* Name */}
               <input
                 placeholder="Name"
                 value={userForm.name}
                 onChange={e => setUserForm(p => ({ ...p, name: e.target.value }))}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
               />
-              <input
-                placeholder="Phone e.g. +2348012345678"
-                value={userForm.phone}
-                onChange={e => setUserForm(p => ({ ...p, phone: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
-              />
-              <select
-                value={userForm.country}
-                onChange={e => setUserForm(p => ({ ...p, country: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500"
-              >
-                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+
+              {/* Country dropdown */}
+              <div ref={countryRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCountryOpen(v => !v)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 text-left flex items-center gap-1.5 outline-none focus:border-zinc-500"
+                >
+                  <span>{selectedCountry?.flag}</span>
+                  <span className="flex-1 truncate">{selectedCountry?.name}</span>
+                  <span className="text-zinc-500">{userForm.dialCode}</span>
+                  <span className="text-zinc-600">▾</span>
+                </button>
+
+                {countryOpen && (
+                  <div className="absolute top-full left-0 right-0 bg-zinc-800 border border-zinc-700 rounded mt-0.5 z-50 flex flex-col">
+                    <input
+                      autoFocus
+                      placeholder="Search country or code..."
+                      value={countrySearch}
+                      onChange={e => setCountrySearch(e.target.value)}
+                      className="bg-zinc-700 border-b border-zinc-600 px-2 py-1.5 text-[11px] text-zinc-200 outline-none placeholder-zinc-500 rounded-t"
+                    />
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredCountries.length === 0 && (
+                        <p className="text-[10px] text-zinc-600 px-2 py-2">No results</p>
+                      )}
+                      {filteredCountries.map(c => (
+                        <button
+                          key={c.code}
+                          onMouseDown={() => selectCountry(c.code, c.dial)}
+                          className="w-full text-left px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-700 flex items-center gap-1.5"
+                        >
+                          <span className="text-base leading-none">{c.flag}</span>
+                          <span className="flex-1 truncate">{c.name}</span>
+                          <span className="text-zinc-500 shrink-0">{c.dial}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Phone with dial code prefix */}
+              <div className="flex gap-1">
+                <div className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-400 shrink-0 flex items-center gap-1">
+                  <span>{selectedCountry?.flag}</span>
+                  <span>{userForm.dialCode}</span>
+                </div>
+                <input
+                  placeholder="Phone number"
+                  value={phoneNumber}
+                  onChange={e => setPhoneNumber(e.target.value)}
+                  className="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
+                />
+              </div>
+
               <button
                 onClick={createUser}
-                disabled={loadingUser || !userForm.name.trim() || !userForm.phone.trim()}
+                disabled={loadingUser || !userForm.name.trim() || !phoneNumber.trim()}
                 className="w-full text-[11px] py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 text-zinc-200 transition-colors"
               >
                 {loadingUser ? 'Creating...' : 'Create user'}
@@ -260,21 +526,22 @@ export default function Home() {
             {users.length === 0 && !showUserForm && (
               <p className="text-[11px] text-zinc-600 px-1 py-2">No users yet. Click + New to create one.</p>
             )}
-            {users.map(user => (
-              <button
-                key={user.id}
-                onClick={() => setActiveUserId(user.id)}
-                className={`w-full text-left rounded p-2 transition-colors border ${
-                  activeUserId === user.id
-                    ? 'bg-zinc-800 border-zinc-600'
-                    : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-                }`}
-              >
-                <p className="text-[11px] text-zinc-200 font-medium">{user.name}</p>
-                <p className="text-[10px] text-zinc-500">{user.phone}</p>
-                <p className="text-[10px] text-zinc-600">{user.country}</p>
-              </button>
-            ))}
+            {users.map(user => {
+              const country = COUNTRIES.find(c => c.code === user.country)
+              return (
+                <button
+                  key={user.id}
+                  onClick={() => setActiveUserId(user.id)}
+                  className={`w-full text-left rounded p-2 transition-colors border ${
+                    activeUserId === user.id ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <p className="text-[11px] text-zinc-200 font-medium">{user.name}</p>
+                  <p className="text-[10px] text-zinc-500">{user.phone}</p>
+                  <p className="text-[10px] text-zinc-600">{country?.flag} {country?.name ?? user.country}</p>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -297,7 +564,11 @@ export default function Home() {
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <div className="border-b border-zinc-800 px-4 py-2 flex items-center gap-2 shrink-0">
           <span className="text-zinc-400 text-[11px]">Conversation</span>
-          {activeUser && <span className="text-zinc-600 text-[11px]">— {activeUser.name} · {activeUser.phone}</span>}
+          {activeUser && (
+            <span className="text-zinc-600 text-[11px]">
+              — {activeUser.name} · {activeUser.phone} · {COUNTRIES.find(c => c.code === activeUser.country)?.flag}
+            </span>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
@@ -315,9 +586,7 @@ export default function Home() {
           {activeMessages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.direction === 'inbound' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-xs sm:max-w-sm px-3 py-2 rounded-lg text-[12px] leading-relaxed ${
-                msg.direction === 'inbound'
-                  ? 'bg-zinc-700 text-zinc-100'
-                  : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
+                msg.direction === 'inbound' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
               }`}>
                 <p className="whitespace-pre-wrap">{msg.message?.text ?? ''}</p>
                 <p className="text-[10px] text-zinc-500 mt-1">{formatTime(msg.timestamp)}</p>
@@ -366,12 +635,7 @@ export default function Home() {
             </div>
           )}
           {events.map((ev, i) => (
-            <div
-              key={i}
-              className={`bg-zinc-900 border rounded p-2 ${
-                ev.event === 'bot.error' ? 'border-red-800' : 'border-zinc-800'
-              }`}
-            >
+            <div key={i} className={`bg-zinc-900 border rounded p-2 ${ev.event === 'bot.error' ? 'border-red-800' : 'border-zinc-800'}`}>
               <p className={`text-[11px] mb-1 ${ev.event === 'bot.error' ? 'text-red-400' : 'text-green-400'}`}>
                 {ev.event}
               </p>

@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import cors from '@fastify/cors'
@@ -5,17 +6,15 @@ import { PROTOCOL_VERSION, ConvkitEvent } from '@convkit/protocol'
 import { createUser, getUsers, createSession, getSessionByUser, addMessage, resetSession, getSessions } from './services/session.service.js'
 import { registerBot, getBots, getActiveBot } from './services/bot.service.js'
 import { forwardToBot } from './services/webhook.service.js'
-import 'dotenv/config'
 
 const PORT = Number(process.env.PORT ?? 4000)
 const WEB_URL = process.env.WEB_URL ?? 'http://localhost:3000'
+
 const server = Fastify({ logger: false })
 const connectedClients = new Set<any>()
 
 await server.register(cors, { origin: WEB_URL })
-// ...
-await server.listen({ port: PORT, host: '0.0.0.0' })
-
+await server.register(websocket)
 
 function broadcast(event: string, data: unknown) {
   const payload = JSON.stringify({ event, data })
@@ -100,8 +99,8 @@ server.post('/api/v1/bot/message', async (req) => {
 })
 
 try {
-  await server.listen({ port: 4000, host: '0.0.0.0' })
-  console.log('Convkit server running on http://localhost:4000')
+  await server.listen({ port: PORT, host: '0.0.0.0' })
+  console.log(`Convkit server running on http://localhost:${PORT}`)
 } catch (err) {
   console.error(err)
   process.exit(1)
