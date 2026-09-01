@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const SERVER = process.env.NEXT_PUBLIC_SERVER ?? 'http://localhost:4000'
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:4000/ws'
@@ -40,6 +40,18 @@ interface Message {
 interface WSEvent {
   event: string
   data: any
+}
+
+interface NetworkRequest {
+  id: string
+  timestamp: string
+  method: string
+  url: string
+  requestBody: unknown
+  responseBody: unknown
+  status: number
+  duration: number
+  error?: string
 }
 
 interface UserForm {
@@ -250,12 +262,45 @@ function formatTime(ts: string): string {
   return `${h}:${m}:${s}`
 }
 
+function useDrag(
+  onDelta: (delta: number) => void,
+  direction: 'horizontal' | 'vertical' = 'horizontal'
+) {
+  const dragging = useRef(false)
+  const last = useRef(0)
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragging.current = true
+    last.current = direction === 'horizontal' ? e.clientX : e.clientY
+
+    function onMove(ev: MouseEvent) {
+      if (!dragging.current) return
+      const curr = direction === 'horizontal' ? ev.clientX : ev.clientY
+      onDelta(curr - last.current)
+      last.current = curr
+    }
+
+    function onUp() {
+      dragging.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [onDelta, direction])
+
+  return onMouseDown
+}
+
 export default function Home() {
   const [users, setUsers] = useState<User[]>([])
   const [sessions, setSessions] = useState<Record<string, Session>>({})
   const [activeUserId, setActiveUserId] = useState<string | null>(null)
   const [messagesByUser, setMessagesByUser] = useState<Record<string, Message[]>>({})
   const [events, setEvents] = useState<WSEvent[]>([])
+  const [networkRequests, setNetworkRequests] = useState<NetworkRequest[]>([])
   const [input, setInput] = useState('')
   const [botUrl, setBotUrl] = useState('http://localhost:5000/webhook')
   const [botRegistered, setBotRegistered] = useState(false)
@@ -265,14 +310,16 @@ export default function Home() {
   const [countrySearch, setCountrySearch] = useState('')
   const [countryOpen, setCountryOpen] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [userForm, setUserForm] = useState<UserForm>({
-    name: '',
-    country: 'NG',
-    dialCode: '+234'
-  })
+  const [userForm, setUserForm] = useState<UserForm>({ name: '', country: 'NG', dialCode: '+234' })
   const [loadingUser, setLoadingUser] = useState(false)
   const [loadingBot, setLoadingBot] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
+  const [rightTab, setRightTab] = useState<'events' | 'network'>('events')
+  const [selectedRequest, setSelectedRequest] = useState<NetworkRequest | null>(null)
+
+  // Panel widths
+  const [leftWidth, setLeftWidth] = useState(256)
+  const [rightWidth, setRightWidth] = useState(320)
 
   const ws = useRef<WebSocket | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -293,11 +340,17 @@ export default function Home() {
         c.code.toLowerCase().includes(countrySearch.toLowerCase())
       )
 
+  const onLeftDrag = useDrag((delta) => {
+    setLeftWidth(w => Math.max(180, Math.min(400, w + delta)))
+  })
+
+  const onRightDrag = useDrag((delta) => {
+    setRightWidth(w => Math.max(220, Math.min(600, w - delta)))
+  })
+
   useEffect(() => { connectWS() }, [])
 
-  useEffect(() => {
-    sessionsRef.current = sessions
-  }, [sessions])
+  useEffect(() => { sessionsRef.current = sessions }, [sessions])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -314,12 +367,6 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function selectCountry(code: string, dial: string) {
-    setUserForm(p => ({ ...p, country: code, dialCode: dial }))
-    setCountryOpen(false)
-    setCountrySearch('')
-  }
-
   function connectWS() {
     const socket = new WebSocket(WS_URL)
     socket.onopen = () => { setConnected(true); setWsStatus('Connected') }
@@ -332,6 +379,12 @@ export default function Home() {
       let payload: WSEvent
       try { payload = JSON.parse(e.data) } catch { return }
       setEvents(prev => [payload, ...prev].slice(0, 100))
+
+      if (payload.event === 'network.request') {
+        setNetworkRequests(prev => [payload.data as NetworkRequest, ...prev].slice(0, 100))
+        setRightTab('network')
+      }
+
       if (payload.event === 'message.sent' || payload.event === 'message.received') {
         const msg: Message = payload.data?.message
         if (!msg?.id) return
@@ -346,6 +399,12 @@ export default function Home() {
     ws.current = socket
   }
 
+  function selectCountry(code: string, dial: string) {
+    setUserForm(p => ({ ...p, country: code, dialCode: dial }))
+    setCountryOpen(false)
+    setCountrySearch('')
+  }
+
   async function createUser() {
     if (!userForm.name.trim() || !phoneNumber.trim()) return
     setLoadingUser(true)
@@ -353,11 +412,7 @@ export default function Home() {
       const res = await fetch(`${SERVER}/api/v1/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: userForm.name,
-          phone: `${userForm.dialCode}${phoneNumber}`,
-          country: userForm.country
-        })
+        body: JSON.stringify({ name: userForm.name, phone: `${userForm.dialCode}${phoneNumber}`, country: userForm.country })
       })
       const data = await res.json()
       setUsers(prev => [...prev, data.user])
@@ -434,11 +489,18 @@ export default function Home() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
 
+  function statusColor(status: number) {
+    if (status === 0) return 'text-red-400'
+    if (status < 300) return 'text-green-400'
+    if (status < 400) return 'text-yellow-400'
+    return 'text-red-400'
+  }
+
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100 text-sm overflow-hidden font-mono">
+    <div className="flex h-screen bg-zinc-950 text-zinc-100 text-sm overflow-hidden font-mono select-none">
 
       {/* Left panel */}
-      <div className="w-64 shrink-0 border-r border-zinc-800 flex flex-col overflow-hidden">
+      <div style={{ width: leftWidth }} className="shrink-0 border-r border-zinc-800 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-widest text-zinc-500">Convkit</span>
           <span className={`text-[10px] px-2 py-0.5 rounded-full ${connected ? 'bg-green-950 text-green-400' : 'bg-yellow-950 text-yellow-400'}`}>
@@ -446,7 +508,6 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Bot webhook */}
         <div className="p-4 border-b border-zinc-800">
           <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Bot Webhook</p>
           <input
@@ -463,14 +524,10 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Users */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 pb-2 flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500">Users</p>
-            <button
-              onClick={() => { setShowUserForm(v => !v); setCountryOpen(false) }}
-              className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
+            <button onClick={() => { setShowUserForm(v => !v); setCountryOpen(false) }} className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">
               {showUserForm ? 'Cancel' : '+ New'}
             </button>
           </div>
@@ -483,19 +540,17 @@ export default function Home() {
                 onChange={e => setUserForm(p => ({ ...p, name: e.target.value }))}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
               />
-
               <div ref={countryRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setCountryOpen(v => !v)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 text-left flex items-center gap-1.5 outline-none focus:border-zinc-500"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 text-left flex items-center gap-1.5"
                 >
                   <span>{selectedCountry?.flag}</span>
                   <span className="flex-1 truncate">{selectedCountry?.name}</span>
                   <span className="text-zinc-500">{userForm.dialCode}</span>
                   <span className="text-zinc-600">▾</span>
                 </button>
-
                 {countryOpen && (
                   <div className="absolute top-full left-0 right-0 bg-zinc-800 border border-zinc-700 rounded mt-0.5 z-50 flex flex-col">
                     <input
@@ -506,15 +561,9 @@ export default function Home() {
                       className="bg-zinc-700 border-b border-zinc-600 px-2 py-1.5 text-[11px] text-zinc-200 outline-none placeholder-zinc-500 rounded-t"
                     />
                     <div className="max-h-40 overflow-y-auto">
-                      {filteredCountries.length === 0 && (
-                        <p className="text-[10px] text-zinc-600 px-2 py-2">No results</p>
-                      )}
+                      {filteredCountries.length === 0 && <p className="text-[10px] text-zinc-600 px-2 py-2">No results</p>}
                       {filteredCountries.map(c => (
-                        <button
-                          key={c.code}
-                          onMouseDown={() => selectCountry(c.code, c.dial)}
-                          className="w-full text-left px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-700 flex items-center gap-1.5"
-                        >
+                        <button key={c.code} onMouseDown={() => selectCountry(c.code, c.dial)} className="w-full text-left px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-700 flex items-center gap-1.5">
                           <span className="text-base leading-none">{c.flag}</span>
                           <span className="flex-1 truncate">{c.name}</span>
                           <span className="text-zinc-500 shrink-0">{c.dial}</span>
@@ -524,7 +573,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-
               <div className="flex gap-1">
                 <div className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-400 shrink-0 flex items-center gap-1">
                   <span>{selectedCountry?.flag}</span>
@@ -537,7 +585,6 @@ export default function Home() {
                   className="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
                 />
               </div>
-
               <button
                 onClick={createUser}
                 disabled={loadingUser || !userForm.name.trim() || !phoneNumber.trim()}
@@ -555,12 +602,8 @@ export default function Home() {
             {users.map(user => {
               const country = COUNTRIES.find(c => c.code === user.country)
               return (
-                <button
-                  key={user.id}
-                  onClick={() => setActiveUserId(user.id)}
-                  className={`w-full text-left rounded p-2 transition-colors border ${
-                    activeUserId === user.id ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-                  }`}
+                <button key={user.id} onClick={() => setActiveUserId(user.id)}
+                  className={`w-full text-left rounded p-2 transition-colors border ${activeUserId === user.id ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}`}
                 >
                   <p className="text-[11px] text-zinc-200 font-medium">{user.name}</p>
                   <p className="text-[10px] text-zinc-500">{user.phone}</p>
@@ -575,15 +618,18 @@ export default function Home() {
           <div className="p-4 border-t border-zinc-800">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Session</p>
             <p className="text-[10px] text-zinc-600 break-all mb-2">{activeSession.id}</p>
-            <button
-              onClick={resetSession}
-              className="w-full text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-red-950 hover:text-red-400 text-zinc-400 transition-colors"
-            >
+            <button onClick={resetSession} className="w-full text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-red-950 hover:text-red-400 text-zinc-400 transition-colors">
               Reset session
             </button>
           </div>
         )}
       </div>
+
+      {/* Left resize handle */}
+      <div
+        onMouseDown={onLeftDrag}
+        className="w-1 shrink-0 bg-zinc-800 hover:bg-zinc-600 cursor-col-resize transition-colors active:bg-zinc-500"
+      />
 
       {/* Center — chat */}
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
@@ -596,7 +642,7 @@ export default function Home() {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2 select-text">
           {!activeUser && (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
               <p className="text-[11px]">No user selected</p>
@@ -613,25 +659,16 @@ export default function Home() {
               <div className={`max-w-xs sm:max-w-sm px-3 py-2 rounded-lg text-[12px] leading-relaxed ${
                 msg.direction === 'inbound' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
               }`}>
-                {msg.message.type === 'text' && (
-                  <p className="whitespace-pre-wrap">{msg.message.text ?? ''}</p>
-                )}
-                {msg.message.type === 'button' && (
-                  <p className="text-zinc-400 italic text-[11px]">Button: {msg.message.buttonTitle}</p>
-                )}
-                {msg.message.type === 'list' && msg.direction === 'inbound' && (
-                  <p className="text-zinc-400 italic text-[11px]">Selected: {msg.message.itemTitle}</p>
-                )}
+                {msg.message.type === 'text' && <p className="whitespace-pre-wrap">{msg.message.text ?? ''}</p>}
+                {msg.message.type === 'button' && <p className="text-zinc-400 italic text-[11px]">Button: {msg.message.buttonTitle}</p>}
+                {msg.message.type === 'list' && msg.direction === 'inbound' && <p className="text-zinc-400 italic text-[11px]">Selected: {msg.message.itemTitle}</p>}
                 {msg.message.type === 'buttons' && (
                   <div>
                     <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
                     <div className="flex flex-col gap-1">
                       {msg.message.buttons?.map(btn => (
-                        <button
-                          key={btn.id}
-                          onClick={() => clickButton(btn.id, btn.title)}
-                          className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 text-[11px] text-zinc-200 transition-colors"
-                        >
+                        <button key={btn.id} onClick={() => clickButton(btn.id, btn.title)}
+                          className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 text-[11px] text-zinc-200 transition-colors">
                           {btn.title}
                         </button>
                       ))}
@@ -643,20 +680,13 @@ export default function Home() {
                     <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
                     {msg.message.sections?.map((section, si) => (
                       <div key={si} className="mb-2">
-                        {section.title && (
-                          <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{section.title}</p>
-                        )}
+                        {section.title && <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{section.title}</p>}
                         <div className="flex flex-col gap-1">
                           {section.items.map(item => (
-                            <button
-                              key={item.id}
-                              onClick={() => selectListItem(item.id, item.title)}
-                              className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 transition-colors"
-                            >
+                            <button key={item.id} onClick={() => selectListItem(item.id, item.title)}
+                              className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 transition-colors">
                               <p className="text-[11px] text-zinc-200">{item.title}</p>
-                              {item.description && (
-                                <p className="text-[10px] text-zinc-500">{item.description}</p>
-                              )}
+                              {item.description && <p className="text-[10px] text-zinc-500">{item.description}</p>}
                             </button>
                           ))}
                         </div>
@@ -690,36 +720,117 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Right — event inspector */}
-      <div className="w-72 shrink-0 border-l border-zinc-800 flex-col overflow-hidden hidden lg:flex">
-        <div className="border-b border-zinc-800 px-4 py-2 shrink-0 flex items-center justify-between">
-          <span className="text-zinc-400 text-[11px]">Event Inspector</span>
-          <span className="text-zinc-600 text-[10px]">{events.length} events</span>
+      {/* Right resize handle */}
+      <div
+        onMouseDown={onRightDrag}
+        className="w-1 shrink-0 bg-zinc-800 hover:bg-zinc-600 cursor-col-resize transition-colors active:bg-zinc-500"
+      />
+
+      {/* Right panel */}
+      <div style={{ width: rightWidth }} className="shrink-0 border-l border-zinc-800 flex flex-col overflow-hidden">
+
+        {/* Tabs */}
+        <div className="border-b border-zinc-800 flex shrink-0">
+          <button
+            onClick={() => setRightTab('events')}
+            className={`flex-1 px-3 py-2 text-[11px] transition-colors ${rightTab === 'events' ? 'text-zinc-200 border-b border-zinc-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            Events {events.length > 0 && <span className="ml-1 text-zinc-600">{events.length}</span>}
+          </button>
+          <button
+            onClick={() => setRightTab('network')}
+            className={`flex-1 px-3 py-2 text-[11px] transition-colors ${rightTab === 'network' ? 'text-zinc-200 border-b border-zinc-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            Network {networkRequests.length > 0 && <span className="ml-1 text-zinc-600">{networkRequests.length}</span>}
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5">
-          {events.length === 0 && (
-            <div className="p-3 text-[11px] text-zinc-600 leading-relaxed">
-              <p className="text-zinc-500 mb-1">No events yet.</p>
-              <p>Events appear here in real time as messages flow between the UI, Convkit server, and your bot.</p>
-              <p className="mt-2">To see events:</p>
-              <ol className="mt-1 space-y-0.5 list-decimal list-inside">
-                <li>Register your bot</li>
-                <li>Create a user</li>
-                <li>Send a message</li>
-              </ol>
-            </div>
-          )}
-          {events.map((ev, i) => (
-            <div key={i} className={`bg-zinc-900 border rounded p-2 ${ev.event === 'bot.error' ? 'border-red-800' : 'border-zinc-800'}`}>
-              <p className={`text-[11px] mb-1 ${ev.event === 'bot.error' ? 'text-red-400' : 'text-green-400'}`}>
-                {ev.event}
-              </p>
-              <pre className="text-zinc-500 text-[10px] whitespace-pre-wrap break-all">
-                {JSON.stringify(ev.data, null, 2).slice(0, 300)}
-              </pre>
-            </div>
-          ))}
-        </div>
+
+        {/* Events tab */}
+        {rightTab === 'events' && (
+          <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5">
+            {events.length === 0 && (
+              <div className="p-3 text-[11px] text-zinc-600 leading-relaxed">
+                <p className="text-zinc-500 mb-1">No events yet.</p>
+                <p>Events appear here in real time as messages flow between the UI, server, and your bot.</p>
+                <p className="mt-2">To see events:</p>
+                <ol className="mt-1 space-y-0.5 list-decimal list-inside">
+                  <li>Register your bot</li>
+                  <li>Create a user</li>
+                  <li>Send a message</li>
+                </ol>
+              </div>
+            )}
+            {events.map((ev, i) => (
+              <div key={i} className={`bg-zinc-900 border rounded p-2 ${ev.event === 'bot.error' ? 'border-red-800' : 'border-zinc-800'}`}>
+                <p className={`text-[11px] mb-1 ${ev.event === 'bot.error' ? 'text-red-400' : 'text-green-400'}`}>{ev.event}</p>
+                <pre className="text-zinc-500 text-[10px] whitespace-pre-wrap break-all">
+                  {JSON.stringify(ev.data, null, 2).slice(0, 300)}
+                </pre>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Network tab */}
+        {rightTab === 'network' && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {selectedRequest ? (
+              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+                <button onClick={() => setSelectedRequest(null)} className="text-[10px] text-zinc-500 hover:text-zinc-300 text-left">← Back</button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400">{selectedRequest.method}</span>
+                  <span className={`text-[11px] font-medium ${statusColor(selectedRequest.status)}`}>{selectedRequest.status || 'ERR'}</span>
+                  <span className="text-[10px] text-zinc-600">{selectedRequest.duration}ms</span>
+                </div>
+
+                <p className="text-[10px] text-zinc-500 break-all">{selectedRequest.url}</p>
+                <p className="text-[10px] text-zinc-600">{formatTime(selectedRequest.timestamp)}</p>
+
+                {selectedRequest.error && (
+                  <div className="bg-red-950 border border-red-800 rounded p-2">
+                    <p className="text-[10px] text-red-400">{selectedRequest.error}</p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Request</p>
+                  <pre className="bg-zinc-900 border border-zinc-800 rounded p-2 text-[10px] text-zinc-400 whitespace-pre-wrap break-all overflow-auto max-h-48">
+                    {JSON.stringify(selectedRequest.requestBody, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Response</p>
+                  <pre className="bg-zinc-900 border border-zinc-800 rounded p-2 text-[10px] text-zinc-400 whitespace-pre-wrap break-all overflow-auto max-h-48">
+                    {JSON.stringify(selectedRequest.responseBody, null, 2) ?? 'null'}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                {networkRequests.length === 0 && (
+                  <div className="p-3 text-[11px] text-zinc-600 leading-relaxed">
+                    <p className="text-zinc-500 mb-1">No requests yet.</p>
+                    <p>Every webhook call Convkit makes to your bot appears here with status, duration, and full request/response payloads.</p>
+                  </div>
+                )}
+                {networkRequests.map(req => (
+                  <button
+                    key={req.id}
+                    onClick={() => setSelectedRequest(req)}
+                    className="w-full text-left px-3 py-2 border-b border-zinc-800 hover:bg-zinc-900 transition-colors flex items-center gap-2"
+                  >
+                    <span className="text-[10px] text-zinc-500">{req.method}</span>
+                    <span className={`text-[11px] font-medium ${statusColor(req.status)}`}>{req.status || 'ERR'}</span>
+                    <span className="text-[10px] text-zinc-600 flex-1 truncate">/webhook</span>
+                    <span className="text-[10px] text-zinc-600 shrink-0">{req.duration}ms</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
     </div>

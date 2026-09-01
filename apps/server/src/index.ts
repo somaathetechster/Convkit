@@ -5,7 +5,7 @@ import cors from '@fastify/cors'
 import { PROTOCOL_VERSION, ConvkitEvent, ButtonMessage, ListMessage } from '@convkit/protocol'
 import { createUser, getUsers, createSession, getSessionByUser, addMessage, resetSession, getSessions } from './services/session.service.js'
 import { registerBot, getBots, getActiveBot } from './services/bot.service.js'
-import { forwardToBot } from './services/webhook.service.js'
+import { forwardToBot, getRequests } from './services/webhook.service.js'
 
 const PORT = Number(process.env.PORT ?? 4000)
 const WEB_URL = process.env.WEB_URL ?? 'http://localhost:3000'
@@ -58,6 +58,8 @@ server.get('/api/v1/users', async () => getUsers())
 
 server.get('/api/v1/sessions', async () => getSessions())
 
+server.get('/api/v1/network', async () => getRequests())
+
 server.post('/api/v1/sessions/:id/reset', async (req) => {
   const { id } = req.params as any
   const session = resetSession(id)
@@ -84,7 +86,11 @@ server.post('/api/v1/messages', async (req) => {
   broadcast('message.sent', { sessionId: session.id, message: sessionMsg })
   try {
     await forwardToBot(bot.webhookUrl, event)
+    const requests = getRequests()
+    if (requests[0]) broadcast('network.request', requests[0])
   } catch (err: any) {
+    const requests = getRequests()
+    if (requests[0]) broadcast('network.request', requests[0])
     broadcast('bot.error', { error: err.message })
     return { error: err.message }
   }
@@ -121,7 +127,11 @@ server.post('/api/v1/button', async (req) => {
 
   try {
     await forwardToBot(bot.webhookUrl, event)
+    const requests = getRequests()
+    if (requests[0]) broadcast('network.request', requests[0])
   } catch (err: any) {
+    const requests = getRequests()
+    if (requests[0]) broadcast('network.request', requests[0])
     broadcast('bot.error', { error: err.message })
     return { error: err.message }
   }
@@ -151,7 +161,11 @@ server.post('/api/v1/list', async (req) => {
 
   try {
     await forwardToBot(bot.webhookUrl, event)
+    const requests = getRequests()
+    if (requests[0]) broadcast('network.request', requests[0])
   } catch (err: any) {
+    const requests = getRequests()
+    if (requests[0]) broadcast('network.request', requests[0])
     broadcast('bot.error', { error: err.message })
     return { error: err.message }
   }
