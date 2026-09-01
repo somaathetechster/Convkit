@@ -2,7 +2,7 @@ import 'dotenv/config'
 import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import cors from '@fastify/cors'
-import { PROTOCOL_VERSION, ConvkitEvent } from '@convkit/protocol'
+import { PROTOCOL_VERSION, ConvkitEvent, ButtonMessage, ListMessage } from '@convkit/protocol'
 import { createUser, getUsers, createSession, getSessionByUser, addMessage, resetSession, getSessions } from './services/session.service.js'
 import { registerBot, getBots, getActiveBot } from './services/bot.service.js'
 import { forwardToBot } from './services/webhook.service.js'
@@ -95,6 +95,66 @@ server.post('/api/v1/bot/message', async (req) => {
   const { sessionId, message } = req.body as any
   const sessionMsg = addMessage(sessionId, 'outbound', message)
   broadcast('message.received', { sessionId, message: sessionMsg })
+  return { ok: true }
+})
+
+server.post('/api/v1/button', async (req) => {
+  const { userId, buttonId, buttonTitle } = req.body as any
+  const session = getSessionByUser(userId)
+  if (!session) return { error: 'No session for user' }
+  const bot = getActiveBot()
+  if (!bot) return { error: 'No bot registered' }
+
+  const message: ButtonMessage = { type: 'button', buttonId, buttonTitle }
+  const sessionMsg = addMessage(session.id, 'inbound', message)
+
+  const event: ConvkitEvent = {
+    version: PROTOCOL_VERSION,
+    event: 'button.clicked',
+    timestamp: new Date().toISOString(),
+    user: session.user,
+    message,
+    sessionId: session.id
+  }
+
+  broadcast('message.sent', { sessionId: session.id, message: sessionMsg })
+
+  try {
+    await forwardToBot(bot.webhookUrl, event)
+  } catch (err: any) {
+    broadcast('bot.error', { error: err.message })
+    return { error: err.message }
+  }
+  return { ok: true }
+})
+
+server.post('/api/v1/list', async (req) => {
+  const { userId, itemId, itemTitle } = req.body as any
+  const session = getSessionByUser(userId)
+  if (!session) return { error: 'No session for user' }
+  const bot = getActiveBot()
+  if (!bot) return { error: 'No bot registered' }
+
+  const message: ListMessage = { type: 'list', itemId, itemTitle }
+  const sessionMsg = addMessage(session.id, 'inbound', message)
+
+  const event: ConvkitEvent = {
+    version: PROTOCOL_VERSION,
+    event: 'list.selected',
+    timestamp: new Date().toISOString(),
+    user: session.user,
+    message,
+    sessionId: session.id
+  }
+
+  broadcast('message.sent', { sessionId: session.id, message: sessionMsg })
+
+  try {
+    await forwardToBot(bot.webhookUrl, event)
+  } catch (err: any) {
+    broadcast('bot.error', { error: err.message })
+    return { error: err.message }
+  }
   return { ok: true }
 })
 

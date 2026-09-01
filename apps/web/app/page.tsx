@@ -20,7 +20,20 @@ interface Session {
 interface Message {
   id: string
   direction: 'inbound' | 'outbound'
-  message: { type: string; text?: string }
+  message: {
+    type: string
+    text?: string
+    buttonId?: string
+    buttonTitle?: string
+    itemId?: string
+    itemTitle?: string
+    buttons?: { id: string; title: string }[]
+    buttonText?: string
+    sections?: {
+      title: string
+      items: { id: string; title: string; description?: string }[]
+    }[]
+  }
   timestamp: string
 }
 
@@ -290,7 +303,6 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [activeMessages])
 
-  // Close country dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
@@ -400,6 +412,24 @@ export default function Home() {
     }
   }
 
+  async function clickButton(buttonId: string, buttonTitle: string) {
+    if (!activeUser) return
+    await fetch(`${SERVER}/api/v1/button`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: activeUser.id, buttonId, buttonTitle })
+    })
+  }
+
+  async function selectListItem(itemId: string, itemTitle: string) {
+    if (!activeUser) return
+    await fetch(`${SERVER}/api/v1/list`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: activeUser.id, itemId, itemTitle })
+    })
+  }
+
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
@@ -447,8 +477,6 @@ export default function Home() {
 
           {showUserForm && (
             <div className="mx-3 mb-3 bg-zinc-900 border border-zinc-700 rounded p-3 flex flex-col gap-2">
-
-              {/* Name */}
               <input
                 placeholder="Name"
                 value={userForm.name}
@@ -456,7 +484,6 @@ export default function Home() {
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
               />
 
-              {/* Country dropdown */}
               <div ref={countryRef} className="relative">
                 <button
                   type="button"
@@ -498,7 +525,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Phone with dial code prefix */}
               <div className="flex gap-1">
                 <div className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-400 shrink-0 flex items-center gap-1">
                   <span>{selectedCountry?.flag}</span>
@@ -545,7 +571,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Session */}
         {activeSession && (
           <div className="p-4 border-t border-zinc-800">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Session</p>
@@ -588,7 +613,57 @@ export default function Home() {
               <div className={`max-w-xs sm:max-w-sm px-3 py-2 rounded-lg text-[12px] leading-relaxed ${
                 msg.direction === 'inbound' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
               }`}>
-                <p className="whitespace-pre-wrap">{msg.message?.text ?? ''}</p>
+                {msg.message.type === 'text' && (
+                  <p className="whitespace-pre-wrap">{msg.message.text ?? ''}</p>
+                )}
+                {msg.message.type === 'button' && (
+                  <p className="text-zinc-400 italic text-[11px]">Button: {msg.message.buttonTitle}</p>
+                )}
+                {msg.message.type === 'list' && msg.direction === 'inbound' && (
+                  <p className="text-zinc-400 italic text-[11px]">Selected: {msg.message.itemTitle}</p>
+                )}
+                {msg.message.type === 'buttons' && (
+                  <div>
+                    <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
+                    <div className="flex flex-col gap-1">
+                      {msg.message.buttons?.map(btn => (
+                        <button
+                          key={btn.id}
+                          onClick={() => clickButton(btn.id, btn.title)}
+                          className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 text-[11px] text-zinc-200 transition-colors"
+                        >
+                          {btn.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {msg.message.type === 'list' && msg.direction === 'outbound' && (
+                  <div>
+                    <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
+                    {msg.message.sections?.map((section, si) => (
+                      <div key={si} className="mb-2">
+                        {section.title && (
+                          <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{section.title}</p>
+                        )}
+                        <div className="flex flex-col gap-1">
+                          {section.items.map(item => (
+                            <button
+                              key={item.id}
+                              onClick={() => selectListItem(item.id, item.title)}
+                              className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 transition-colors"
+                            >
+                              <p className="text-[11px] text-zinc-200">{item.title}</p>
+                              {item.description && (
+                                <p className="text-[10px] text-zinc-500">{item.description}</p>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p className="text-[10px] text-zinc-500 mt-1">{formatTime(msg.timestamp)}</p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { ConvkitUser, ConvkitMessage } from '@convkit/protocol'
+import { ConvkitUser, ConvkitMessage, ConvkitReply } from '@convkit/protocol'
 
 export interface Session {
   id: string
@@ -12,7 +12,7 @@ export interface Session {
 export interface SessionMessage {
   id: string
   direction: 'inbound' | 'outbound'
-  message: ConvkitMessage
+  message: ConvkitMessage | ConvkitReply
   timestamp: string
 }
 
@@ -64,7 +64,11 @@ export function getSessionByUser(userId: string): Session | undefined {
   return Array.from(sessions.values()).find(s => s.user.id === userId)
 }
 
-export function addMessage(sessionId: string, direction: 'inbound' | 'outbound', message: ConvkitMessage): SessionMessage | null {
+export function addMessage(
+  sessionId: string,
+  direction: 'inbound' | 'outbound',
+  message: ConvkitMessage | ConvkitReply
+): SessionMessage | null {
   const session = sessions.get(sessionId)
   if (!session) return null
   const msg: SessionMessage = {
@@ -89,4 +93,9 @@ export function resetSession(sessionId: string): Session | null {
 
 export function getSessions(): Session[] {
   return Array.from(sessions.values())
+}
+
+export function _resetForTests(): void {
+  sessions.clear()
+  users.clear()
 }

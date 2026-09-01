@@ -1,7 +1,5 @@
-// Protocol version
 export const PROTOCOL_VERSION = '1.0'
 
-// User
 export interface ConvkitUser {
   id: string
   phone: string
@@ -9,9 +7,6 @@ export interface ConvkitUser {
   country?: string
   metadata?: Record<string, unknown>
 }
-
-// Message types
-export type MessageType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' | 'button' | 'list'
 
 export interface TextMessage {
   type: 'text'
@@ -30,9 +25,30 @@ export interface ListMessage {
   itemTitle: string
 }
 
-export type ConvkitMessage = TextMessage | ButtonMessage | ListMessage
+export interface TextReply {
+  type: 'text'
+  text: string
+}
 
-// Event types
+export interface ButtonsReply {
+  type: 'buttons'
+  text: string
+  buttons: { id: string; title: string }[]
+}
+
+export interface ListReply {
+  type: 'list'
+  text: string
+  buttonText: string
+  sections: {
+    title: string
+    items: { id: string; title: string; description?: string }[]
+  }[]
+}
+
+export type ConvkitMessage = TextMessage | ButtonMessage | ListMessage
+export type ConvkitReply = TextReply | ButtonsReply | ListReply
+
 export type EventType =
   | 'message.received'
   | 'message.sent'
@@ -43,7 +59,6 @@ export type EventType =
   | 'user.created'
   | 'user.updated'
 
-// Base event
 export interface ConvkitEvent {
   version: string
   event: EventType
@@ -53,11 +68,19 @@ export interface ConvkitEvent {
   sessionId: string
 }
 
-// Outbound — what Convkit POSTs to the bot's webhook
-export interface InboundWebhookPayload extends ConvkitEvent {}
-
-// Inbound — what the bot sends back to Convkit
 export interface OutboundMessage {
   to: string
-  message: ConvkitMessage
+  message: ConvkitReply
+}
+
+export function isTextMessage(msg: ConvkitMessage): msg is TextMessage {
+  return msg.type === 'text'
+}
+
+export function isButtonMessage(msg: ConvkitMessage): msg is ButtonMessage {
+  return msg.type === 'button'
+}
+
+export function isListMessage(msg: ConvkitMessage): msg is ListMessage {
+  return msg.type === 'list'
 }

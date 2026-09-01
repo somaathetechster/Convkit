@@ -7,8 +7,13 @@ import {
   addMessage,
   resetSession,
   getUsers,
-  getSessions
+  getSessions,
+  _resetForTests
 } from './session.service.js'
+
+beforeEach(() => {
+  _resetForTests()
+})
 
 describe('session service', () => {
   it('creates a user with correct fields', () => {
@@ -45,6 +50,22 @@ describe('session service', () => {
     expect(updated?.messages).toHaveLength(1)
   })
 
+  it('adds button messages to a session', () => {
+    const user = createUser({ name: 'Eve', phone: '+2348000000005' })
+    const session = createSession(user)
+    const msg = addMessage(session.id, 'inbound', { type: 'button', buttonId: 'buy', buttonTitle: 'Buy' })
+    expect(msg).not.toBeNull()
+    expect((msg?.message as any).buttonId).toBe('buy')
+  })
+
+  it('adds list messages to a session', () => {
+    const user = createUser({ name: 'Frank', phone: '+2348000000006' })
+    const session = createSession(user)
+    const msg = addMessage(session.id, 'inbound', { type: 'list', itemId: 'usdt', itemTitle: 'USDT' })
+    expect(msg).not.toBeNull()
+    expect((msg?.message as any).itemId).toBe('usdt')
+  })
+
   it('resets a session correctly', () => {
     const user = createUser({ name: 'Dan', phone: '+2348000000004' })
     const session = createSession(user)
@@ -58,5 +79,17 @@ describe('session service', () => {
   it('returns null when adding message to nonexistent session', () => {
     const result = addMessage('fake_session', 'inbound', { type: 'text', text: 'test' })
     expect(result).toBeNull()
+  })
+
+  it('getUsers returns all created users', () => {
+    createUser({ name: 'User1', phone: '+2348000000010' })
+    createUser({ name: 'User2', phone: '+2348000000011' })
+    expect(getUsers().length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('getSessions returns all created sessions', () => {
+    const user = createUser({ name: 'User3', phone: '+2348000000012' })
+    createSession(user)
+    expect(getSessions().length).toBeGreaterThanOrEqual(1)
   })
 })
