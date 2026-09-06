@@ -693,6 +693,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={async () => {
+                      if (!activeUser) return
                       const key = prompt('Key:')
                       if (!key) return
                       const value = prompt('Value:')

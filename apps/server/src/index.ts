@@ -13,7 +13,11 @@ const WEB_URL = process.env.WEB_URL ?? 'http://localhost:3000'
 const server = Fastify({ logger: false })
 const connectedClients = new Set<any>()
 
-await server.register(cors, { origin: WEB_URL })
+await server.register(cors, {
+  origin: WEB_URL,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+})
 await server.register(websocket)
 
 function broadcast(event: string, data: unknown) {
