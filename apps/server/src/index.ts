@@ -3,7 +3,7 @@ import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import cors from '@fastify/cors'
 import { PROTOCOL_VERSION, ConvkitEvent, ButtonMessage, ListMessage } from '@convkit/protocol'
-import { createUser, getUsers, createSession, getSessionByUser, addMessage, resetSession, getSessions } from './services/session.service.js'
+import { createUser, getUsers, getUser, createSession, getSessionByUser, addMessage, resetSession, getSessions, updateUserMetadata } from './services/session.service.js'
 import { registerBot, getBots, getActiveBot } from './services/bot.service.js'
 import { forwardToBot, getRequests } from './services/webhook.service.js'
 
@@ -170,6 +170,24 @@ server.post('/api/v1/list', async (req) => {
     return { error: err.message }
   }
   return { ok: true }
+})
+
+server.patch('/api/v1/users/:id/metadata', async (req) => {
+  const { id } = req.params as any
+  const { metadata } = req.body as any
+  const user = updateUserMetadata(id, (metadata ?? {}) as Record<string, unknown>)
+  if (!user) return { error: 'User not found' }
+  broadcast('user.updated', user)
+  return user
+})
+
+server.delete('/api/v1/users/:id/metadata/:key', async (req) => {
+  const { id, key } = req.params as any
+  const user = getUser(id)
+  if (!user) return { error: 'User not found' }
+  if (user.metadata) delete user.metadata[key]
+  broadcast('user.updated', user)
+  return user
 })
 
 try {

@@ -10,6 +10,7 @@ interface User {
   name: string
   phone: string
   country: string
+  metadata?: Record<string, unknown>
 }
 
 interface Session {
@@ -58,6 +59,7 @@ interface UserForm {
   name: string
   country: string
   dialCode: string
+  metadata: { key: string; value: string }[]
 }
 
 const COUNTRIES = [
@@ -310,7 +312,7 @@ export default function Home() {
   const [countrySearch, setCountrySearch] = useState('')
   const [countryOpen, setCountryOpen] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [userForm, setUserForm] = useState<UserForm>({ name: '', country: 'NG', dialCode: '+234' })
+  const [userForm, setUserForm] = useState<UserForm>({ name: '', country: 'NG', dialCode: '+234', metadata: [] })
   const [loadingUser, setLoadingUser] = useState(false)
   const [loadingBot, setLoadingBot] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
@@ -385,6 +387,11 @@ export default function Home() {
         setRightTab('network')
       }
 
+      if (payload.event === 'user.updated') {
+        const updatedUser = payload.data as User
+        setUsers(prev => prev.map(u => u.id === updatedUser.id ? { ...u, metadata: updatedUser.metadata } : u))
+      }
+
       if (payload.event === 'message.sent' || payload.event === 'message.received') {
         const msg: Message = payload.data?.message
         if (!msg?.id) return
@@ -412,7 +419,16 @@ export default function Home() {
       const res = await fetch(`${SERVER}/api/v1/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: userForm.name, phone: `${userForm.dialCode}${phoneNumber}`, country: userForm.country })
+        body: JSON.stringify({
+          name: userForm.name,
+          phone: `${userForm.dialCode}${phoneNumber}`,
+          country: userForm.country,
+          metadata: Object.fromEntries(
+            userForm.metadata
+              .filter(m => m.key.trim() !== '')
+              .map(m => [m.key.trim(), m.value.trim()])
+          )
+        })
       })
       const data = await res.json()
       setUsers(prev => [...prev, data.user])
@@ -420,7 +436,7 @@ export default function Home() {
       setMessagesByUser(prev => ({ ...prev, [data.user.id]: [] }))
       setActiveUserId(data.user.id)
       setShowUserForm(false)
-      setUserForm({ name: '', country: 'NG', dialCode: '+234' })
+      setUserForm({ name: '', country: 'NG', dialCode: '+234', metadata: [] })
       setPhoneNumber('')
       setCountrySearch('')
     } finally {
@@ -585,6 +601,56 @@ export default function Home() {
                   className="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
                 />
               </div>
+
+              {/* Metadata */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">State / Metadata</p>
+                  <button
+                    type="button"
+                    onClick={() => setUserForm(p => ({ ...p, metadata: [...p.metadata, { key: '', value: '' }] }))}
+                    className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    + Add field
+                  </button>
+                </div>
+                {userForm.metadata.length === 0 && (
+                  <p className="text-[10px] text-zinc-600">No state set. Click + Add field to inject metadata into this user.</p>
+                )}
+                {userForm.metadata.map((field, idx) => (
+                  <div key={idx} className="flex gap-1 items-center">
+                    <input
+                      placeholder="key"
+                      value={field.key}
+                      onChange={e => {
+                        const updated = [...userForm.metadata]
+                        updated[idx] = { ...updated[idx], key: e.target.value }
+                        setUserForm(p => ({ ...p, metadata: updated }))
+                      }}
+                      className="w-24 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
+                    />
+                    <span className="text-zinc-600 text-[11px]">:</span>
+                    <input
+                      placeholder="value"
+                      value={field.value}
+                      onChange={e => {
+                        const updated = [...userForm.metadata]
+                        updated[idx] = { ...updated[idx], value: e.target.value }
+                        setUserForm(p => ({ ...p, metadata: updated }))
+                      }}
+                      className="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setUserForm(p => ({ ...p, metadata: p.metadata.filter((_, i) => i !== idx) }))}
+                      className="text-zinc-600 hover:text-red-400 text-[11px] transition-colors px-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
               <button
                 onClick={createUser}
                 disabled={loadingUser || !userForm.name.trim() || !phoneNumber.trim()}
@@ -618,6 +684,51 @@ export default function Home() {
           <div className="p-4 border-t border-zinc-800">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Session</p>
             <p className="text-[10px] text-zinc-600 break-all mb-2">{activeSession.id}</p>
+
+            {/* Live metadata editor */}
+            {activeUser && (
+              <div className="mb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500">User State</p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const key = prompt('Key:')
+                      if (!key) return
+                      const value = prompt('Value:')
+                      if (value === null) return
+                      await fetch(`${SERVER}/api/v1/users/${activeUser.id}/metadata`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ metadata: { [key]: value } })
+                      })
+                    }}
+                    className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    + Add
+                  </button>
+                </div>
+                {Object.entries(activeUser.metadata ?? {}).length === 0 && (
+                  <p className="text-[10px] text-zinc-600">No state.</p>
+                )}
+                {Object.entries(activeUser.metadata ?? {}).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-1 mb-0.5">
+                    <span className="text-[10px] text-zinc-400 truncate flex-1">{k}: <span className="text-zinc-300">{String(v)}</span></span>
+                    <button
+                      onClick={async () => {
+                        await fetch(`${SERVER}/api/v1/users/${activeUser.id}/metadata/${encodeURIComponent(k)}`, {
+                          method: 'DELETE'
+                        })
+                      }}
+                      className="text-zinc-600 hover:text-red-400 text-[10px] transition-colors shrink-0"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button onClick={resetSession} className="w-full text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-red-950 hover:text-red-400 text-zinc-400 transition-colors">
               Reset session
             </button>

@@ -99,3 +99,9 @@ export function _resetForTests(): void {
   sessions.clear()
   users.clear()
 }
+export function updateUserMetadata(userId: string, metadata: Record<string, unknown>): ConvkitUser | null {
+  const user = users.get(userId)
+  if (!user) return null
+  user.metadata = { ...user.metadata, ...metadata }
+  return user
+}

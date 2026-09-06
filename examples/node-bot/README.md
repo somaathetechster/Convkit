@@ -1,6 +1,11 @@
 # Convkit Node.js Bot Example
 
-A minimal WhatsApp bot written in Node.js that connects to Convkit.
+A generic demo bot written in Node.js that connects to Convkit. It is
+industry-neutral — it exists to demonstrate what Convkit can do, not to model
+any particular product.
+
+It exercises every message type Convkit supports: text, buttons, lists, and
+state injection.
 
 No external dependencies — uses Node.js stdlib only.
 
@@ -29,15 +34,47 @@ The bot starts on `http://localhost:5000`.
 
 | Command | Response |
 |---|---|
-| `hello` / `hi` | Greeting + available commands |
-| `ping` | Pong |
-| `balance` | Returns a demo balance |
-| `help` | Lists available commands |
+| `hello` / `hi` | Greeting + buttons: Features, About, Help |
+| `ping` | `Pong! 🏓` |
+| `help` | A list message with two sections: Commands and Info |
+| `status` | Formatted summary of the user's injected state (metadata) |
+| `about` | What this bot demonstrates |
 
-Any other message returns an echo with an "I don't understand" response.
+Any other message returns `Unknown command. Send 'hello' to get started.`
+
+### Buttons
+
+- **Features** — sends a list of Convkit's message capabilities
+- **About** — same as the `about` command
+- **Help** — same as the `help` command
+
+### List selections
+
+Selecting any list item replies with the item title and a short explanation of
+how list selections are delivered.
+
+## State injection
+
+Every event Convkit forwards to the bot includes the full user object, and
+`user.metadata` carries whatever state you injected into that user.
+
+The `status` command reads `event.user.metadata` and prints whatever keys are
+present. If none are set, it replies:
+
+> No state set for this user. Try adding metadata in Convkit when creating a user.
+
+To try it:
+
+1. In Convkit, click **+ New** to create a user
+2. Under **State / Metadata**, click **+ Add field** and add keys such as
+   `plan: pro` or `locale: en`
+3. Create the user and send `status`
+
+You can also add or remove keys on the fly from the **User State** panel below
+the session ID, without recreating the user.
 
 ## How it works
 
-Convkit sends a POST request to `/webhook` every time the virtual user
-sends a message. The bot reads the event, decides on a response, and
-POSTs back to `http://localhost:4000/api/v1/bot/message`.
+Convkit sends a POST request to `/webhook` every time the virtual user acts.
+The bot reads the event, decides on a response, and POSTs back to
+`http://localhost:4000/api/v1/bot/message`.
