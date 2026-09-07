@@ -18,6 +18,20 @@ interface Session {
   user: User
 }
 
+interface ConvkitRecording {
+  id: string
+  name: string
+  createdAt: string
+  user: { id: string; phone: string; name?: string }
+  sessionId: string
+  messages: {
+    id: string
+    direction: 'inbound' | 'outbound'
+    message: { type: string; text?: string }
+    timestamp: string
+  }[]
+}
+
 interface Message {
   id: string
   direction: 'inbound' | 'outbound'
@@ -318,6 +332,12 @@ export default function Home() {
   const [loadingSend, setLoadingSend] = useState(false)
   const [rightTab, setRightTab] = useState<'events' | 'network'>('events')
   const [selectedRequest, setSelectedRequest] = useState<NetworkRequest | null>(null)
+  const [recordings, setRecordings] = useState<ConvkitRecording[]>([])
+  const [isRecordingActive, setIsRecordingActive] = useState(false)
+  const [recordingName, setRecordingName] = useState('')
+  const [showRecordingInput, setShowRecordingInput] = useState(false)
+  const [replayingId, setReplayingId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'chat' | 'recordings'>('chat')
 
   // Panel widths
   const [leftWidth, setLeftWidth] = useState(256)
@@ -350,7 +370,7 @@ export default function Home() {
     setRightWidth(w => Math.max(220, Math.min(600, w - delta)))
   })
 
-  useEffect(() => { connectWS() }, [])
+  useEffect(() => { connectWS(); fetchRecordings() }, [])
 
   useEffect(() => { sessionsRef.current = sessions }, [sessions])
 
@@ -390,6 +410,22 @@ export default function Home() {
       if (payload.event === 'user.updated') {
         const updatedUser = payload.data as User
         setUsers(prev => prev.map(u => u.id === updatedUser.id ? { ...u, metadata: updatedUser.metadata } : u))
+      }
+
+      if (payload.event === 'recording.started') {
+        setIsRecordingActive(true)
+      }
+      if (payload.event === 'recording.stopped') {
+        setIsRecordingActive(false)
+        setShowRecordingInput(false)
+        setRecordingName('')
+        fetchRecordings()
+      }
+      if (payload.event === 'replay.started') {
+        setReplayingId(payload.data?.recordingId ?? null)
+      }
+      if (payload.event === 'replay.completed' || payload.event === 'replay.error') {
+        setReplayingId(null)
       }
 
       if (payload.event === 'message.sent' || payload.event === 'message.received') {
@@ -481,6 +517,40 @@ export default function Home() {
       setMessagesByUser(prev => ({ ...prev, [activeUserId]: [] }))
       seenIds.current.clear()
     }
+  }
+
+  async function fetchRecordings() {
+    const res = await fetch(`${SERVER}/api/v1/recordings`)
+    const data = await res.json()
+    setRecordings(data)
+  }
+
+  async function startRecording() {
+    if (!activeSession || !recordingName.trim()) return
+    await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/record/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: recordingName.trim() })
+    })
+  }
+
+  async function stopRecording() {
+    if (!activeSession) return
+    await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/record/stop`, {
+      method: 'POST'
+    })
+  }
+
+  async function replayRecording(recordingId: string) {
+    setReplayingId(recordingId)
+    await fetch(`${SERVER}/api/v1/recordings/${recordingId}/replay`, {
+      method: 'POST'
+    })
+  }
+
+  async function deleteRecording(recordingId: string) {
+    await fetch(`${SERVER}/api/v1/recordings/${recordingId}`, { method: 'DELETE' })
+    fetchRecordings()
   }
 
   async function clickButton(buttonId: string, buttonTitle: string) {
@@ -746,90 +816,200 @@ export default function Home() {
       {/* Center — chat */}
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <div className="border-b border-zinc-800 px-4 py-2 flex items-center gap-2 shrink-0">
-          <span className="text-zinc-400 text-[11px]">Conversation</span>
-          {activeUser && (
-            <span className="text-zinc-600 text-[11px]">
+          <div className="flex gap-1 mr-2">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`text-[11px] px-2 py-0.5 rounded transition-colors ${activeTab === 'chat' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Chat
+            </button>
+            <button
+              onClick={() => { setActiveTab('recordings'); fetchRecordings() }}
+              className={`text-[11px] px-2 py-0.5 rounded transition-colors ${activeTab === 'recordings' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Recordings {recordings.length > 0 && <span className="text-zinc-600 ml-1">{recordings.length}</span>}
+            </button>
+          </div>
+
+          {activeTab === 'chat' && activeUser && (
+            <span className="text-zinc-600 text-[11px] flex-1">
               — {activeUser.name} · {activeUser.phone} · {COUNTRIES.find(c => c.code === activeUser.country)?.flag}
             </span>
           )}
+
+          {activeTab === 'chat' && activeSession && (
+            <div className="ml-auto flex items-center gap-2">
+              {isRecordingActive ? (
+                <button
+                  onClick={stopRecording}
+                  className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-red-950 text-red-400 hover:bg-red-900 transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                  Stop
+                </button>
+              ) : showRecordingInput ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    placeholder="Recording name..."
+                    value={recordingName}
+                    onChange={e => setRecordingName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') startRecording(); if (e.key === 'Escape') setShowRecordingInput(false) }}
+                    className="bg-zinc-900 border border-zinc-700 rounded px-2 py-0.5 text-[11px] text-zinc-200 outline-none focus:border-zinc-500 placeholder-zinc-600 w-36"
+                  />
+                  <button
+                    onClick={startRecording}
+                    disabled={!recordingName.trim()}
+                    className="text-[11px] px-2 py-0.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 text-zinc-200 transition-colors"
+                  >
+                    Start
+                  </button>
+                  <button
+                    onClick={() => setShowRecordingInput(false)}
+                    className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowRecordingInput(true)}
+                  className="text-[11px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors"
+                >
+                  ⏺ Record
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2 select-text">
-          {!activeUser && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
-              <p className="text-[11px]">No user selected</p>
-              <p className="text-[10px]">Create a user from the left panel to begin</p>
-            </div>
-          )}
-          {activeUser && activeMessages.length === 0 && (
-            <div className="flex-1 flex items-center justify-center text-zinc-700 text-[11px]">
-              Send a message to start the conversation
-            </div>
-          )}
-          {activeMessages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.direction === 'inbound' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xs sm:max-w-sm px-3 py-2 rounded-lg text-[12px] leading-relaxed ${
-                msg.direction === 'inbound' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
-              }`}>
-                {msg.message.type === 'text' && <p className="whitespace-pre-wrap">{msg.message.text ?? ''}</p>}
-                {msg.message.type === 'button' && <p className="text-zinc-400 italic text-[11px]">Button: {msg.message.buttonTitle}</p>}
-                {msg.message.type === 'list' && msg.direction === 'inbound' && <p className="text-zinc-400 italic text-[11px]">Selected: {msg.message.itemTitle}</p>}
-                {msg.message.type === 'buttons' && (
-                  <div>
-                    <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
-                    <div className="flex flex-col gap-1">
-                      {msg.message.buttons?.map(btn => (
-                        <button key={btn.id} onClick={() => clickButton(btn.id, btn.title)}
-                          className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 text-[11px] text-zinc-200 transition-colors">
-                          {btn.title}
-                        </button>
+        {activeTab === 'chat' && (
+          <>
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2 select-text">
+            {!activeUser && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
+                <p className="text-[11px]">No user selected</p>
+                <p className="text-[10px]">Create a user from the left panel to begin</p>
+              </div>
+            )}
+            {activeUser && activeMessages.length === 0 && (
+              <div className="flex-1 flex items-center justify-center text-zinc-700 text-[11px]">
+                Send a message to start the conversation
+              </div>
+            )}
+            {activeMessages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.direction === 'inbound' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-xs sm:max-w-sm px-3 py-2 rounded-lg text-[12px] leading-relaxed ${
+                  msg.direction === 'inbound' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
+                }`}>
+                  {msg.message.type === 'text' && <p className="whitespace-pre-wrap">{msg.message.text ?? ''}</p>}
+                  {msg.message.type === 'button' && <p className="text-zinc-400 italic text-[11px]">Button: {msg.message.buttonTitle}</p>}
+                  {msg.message.type === 'list' && msg.direction === 'inbound' && <p className="text-zinc-400 italic text-[11px]">Selected: {msg.message.itemTitle}</p>}
+                  {msg.message.type === 'buttons' && (
+                    <div>
+                      <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
+                      <div className="flex flex-col gap-1">
+                        {msg.message.buttons?.map(btn => (
+                          <button key={btn.id} onClick={() => clickButton(btn.id, btn.title)}
+                            className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 text-[11px] text-zinc-200 transition-colors">
+                            {btn.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {msg.message.type === 'list' && msg.direction === 'outbound' && (
+                    <div>
+                      <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
+                      {msg.message.sections?.map((section, si) => (
+                        <div key={si} className="mb-2">
+                          {section.title && <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{section.title}</p>}
+                          <div className="flex flex-col gap-1">
+                            {section.items.map(item => (
+                              <button key={item.id} onClick={() => selectListItem(item.id, item.title)}
+                                className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 transition-colors">
+                                <p className="text-[11px] text-zinc-200">{item.title}</p>
+                                {item.description && <p className="text-[10px] text-zinc-500">{item.description}</p>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
-                {msg.message.type === 'list' && msg.direction === 'outbound' && (
-                  <div>
-                    <p className="whitespace-pre-wrap mb-2">{msg.message.text}</p>
-                    {msg.message.sections?.map((section, si) => (
-                      <div key={si} className="mb-2">
-                        {section.title && <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{section.title}</p>}
-                        <div className="flex flex-col gap-1">
-                          {section.items.map(item => (
-                            <button key={item.id} onClick={() => selectListItem(item.id, item.title)}
-                              className="w-full text-left px-3 py-1.5 rounded border border-zinc-600 hover:bg-zinc-700 transition-colors">
-                              <p className="text-[11px] text-zinc-200">{item.title}</p>
-                              {item.description && <p className="text-[10px] text-zinc-500">{item.description}</p>}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[10px] text-zinc-500 mt-1">{formatTime(msg.timestamp)}</p>
+                  )}
+                  <p className="text-[10px] text-zinc-500 mt-1">{formatTime(msg.timestamp)}</p>
+                </div>
               </div>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
 
-        <div className="border-t border-zinc-800 p-3 flex gap-2 shrink-0">
-          <input
-            className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-[12px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500 min-w-0"
-            placeholder={activeUser ? 'Type a message...' : 'Select a user first'}
-            value={input}
-            disabled={!activeUser}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!activeUser || !input.trim() || loadingSend}
-            className="px-4 py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-30 text-[12px] text-zinc-200 transition-colors shrink-0"
-          >
-            {loadingSend ? '...' : 'Send'}
-          </button>
-        </div>
+          <div className="border-t border-zinc-800 p-3 flex gap-2 shrink-0">
+            <input
+              className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-[12px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500 min-w-0"
+              placeholder={activeUser ? 'Type a message...' : 'Select a user first'}
+              value={input}
+              disabled={!activeUser}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!activeUser || !input.trim() || loadingSend}
+              className="px-4 py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-30 text-[12px] text-zinc-200 transition-colors shrink-0"
+            >
+              {loadingSend ? '...' : 'Send'}
+            </button>
+          </div>
+          </>
+        )}
+
+        {activeTab === 'recordings' && (
+          <div className="flex-1 overflow-y-auto p-4">
+            {recordings.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-zinc-700">
+                <p className="text-[11px]">No recordings yet.</p>
+                <p className="text-[10px]">Switch to Chat, select a user, and click ⏺ Record to start capturing a conversation.</p>
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              {recordings.map(rec => (
+                <div key={rec.id} className="bg-zinc-900 border border-zinc-800 rounded p-3 flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] text-zinc-200 font-medium">{rec.name}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => replayRecording(rec.id)}
+                        disabled={replayingId === rec.id}
+                        className="text-[11px] px-2 py-0.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 text-zinc-200 transition-colors"
+                      >
+                        {replayingId === rec.id ? 'Replaying...' : '▶ Replay'}
+                      </button>
+                      <button
+                        onClick={() => deleteRecording(rec.id)}
+                        className="text-[11px] text-zinc-600 hover:text-red-400 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">{rec.user.name} · {rec.user.phone}</p>
+                  <p className="text-[10px] text-zinc-600">{rec.messages.length} messages · {new Date(rec.createdAt).toLocaleString()}</p>
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {rec.messages.slice(0, 5).map(msg => (
+                      <p key={msg.id} className={`text-[10px] truncate ${msg.direction === 'inbound' ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                        {msg.direction === 'inbound' ? '→' : '←'} {(msg.message as any).text ?? msg.message.type}
+                      </p>
+                    ))}
+                    {rec.messages.length > 5 && (
+                      <p className="text-[10px] text-zinc-700">+{rec.messages.length - 5} more</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right resize handle */}

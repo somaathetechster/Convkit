@@ -84,3 +84,19 @@ export function isButtonMessage(msg: ConvkitMessage): msg is ButtonMessage {
 export function isListMessage(msg: ConvkitMessage): msg is ListMessage {
   return msg.type === 'list'
 }
+
+export interface RecordedMessage {
+  id: string
+  direction: 'inbound' | 'outbound'
+  message: ConvkitMessage | ConvkitReply
+  timestamp: string
+}
+
+export interface ConvkitRecording {
+  id: string
+  name: string
+  createdAt: string
+  user: ConvkitUser
+  sessionId: string
+  messages: RecordedMessage[]
+}
