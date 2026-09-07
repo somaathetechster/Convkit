@@ -1,0 +1,14 @@
+{
+  "name": "@convkit/test-engine",
+  "version": "0.1.0",
+  "description": "Convkit conversational test engine",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@convkit/protocol": "workspace:*"
+  },
+  "license": "MIT"
+}

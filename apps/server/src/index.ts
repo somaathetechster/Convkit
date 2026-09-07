@@ -228,6 +228,13 @@ server.delete('/api/v1/users/:id/metadata/:key', async (req) => {
   return user
 })
 
+server.get('/api/v1/sessions/:id/messages', async (req, reply) => {
+  const { id } = req.params as any
+  const session = getSession(id)
+  if (!session) return reply.status(404).send({ error: 'Session not found' })
+  return session.messages
+})
+
 server.post('/api/v1/sessions/:id/record/start', async (req) => {
   const { id } = req.params as any
   const { name } = (req.body ?? {}) as any
