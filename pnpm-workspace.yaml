@@ -3,6 +3,7 @@ packages:
   - 'packages/*'
   - 'sdks/*'
   - 'adapters/*'
+  - 'examples'
   - 'examples/*'
 allowBuilds:
   esbuild: false

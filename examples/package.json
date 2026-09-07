@@ -1,0 +1,16 @@
+{
+  "name": "@convkit/examples",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "tsx test-example.ts"
+  },
+  "dependencies": {
+    "@convkit/test-engine": "workspace:*",
+    "@convkit/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.12"
+  }
+}

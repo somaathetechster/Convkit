@@ -285,6 +285,19 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  examples:
+    dependencies:
+      '@convkit/protocol':
+        specifier: workspace:*
+        version: link:../packages/protocol
+      '@convkit/test-engine':
+        specifier: workspace:*
+        version: link:../packages/test-engine
+    devDependencies:
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
+
   packages/protocol: {}
 
   packages/test-engine:
