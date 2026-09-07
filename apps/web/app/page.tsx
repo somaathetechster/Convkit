@@ -346,6 +346,7 @@ export default function Home() {
   const ws = useRef<WebSocket | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const seenIds = useRef<Set<string>>(new Set())
+  const seenNetworkIds = useRef<Set<string>>(new Set())
   const sessionsRef = useRef<Record<string, Session>>({})
   const countryRef = useRef<HTMLDivElement>(null)
 
@@ -403,7 +404,11 @@ export default function Home() {
       setEvents(prev => [payload, ...prev].slice(0, 100))
 
       if (payload.event === 'network.request') {
-        setNetworkRequests(prev => [payload.data as NetworkRequest, ...prev].slice(0, 100))
+        const req = payload.data as NetworkRequest
+        if (!req?.id) return
+        if (seenNetworkIds.current.has(req.id)) return
+        seenNetworkIds.current.add(req.id)
+        setNetworkRequests(prev => [req, ...prev].slice(0, 100))
         setRightTab('network')
       }
 
@@ -516,6 +521,7 @@ export default function Home() {
     if (res.ok) {
       setMessagesByUser(prev => ({ ...prev, [activeUserId]: [] }))
       seenIds.current.clear()
+      seenNetworkIds.current.clear()
     }
   }
 
@@ -1107,9 +1113,9 @@ export default function Home() {
                     <p>Every webhook call Convkit makes to your bot appears here with status, duration, and full request/response payloads.</p>
                   </div>
                 )}
-                {networkRequests.map(req => (
+                {networkRequests.map((req, i) => (
                   <button
-                    key={req.id}
+                    key={`${req.id}-${i}`}
                     onClick={() => setSelectedRequest(req)}
                     className="w-full text-left px-3 py-2 border-b border-zinc-800 hover:bg-zinc-900 transition-colors flex items-center gap-2"
                   >
