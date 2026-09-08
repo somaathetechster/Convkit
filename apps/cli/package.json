@@ -1,6 +1,6 @@
 {
   "name": "@convkit/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Convkit CLI — local development environment for WhatsApp bots",
   "type": "module",
   "bin": {
