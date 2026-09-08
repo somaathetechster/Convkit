@@ -123,6 +123,89 @@ Start your bot locally (example: a Node.js bot listening on port 5000), register
 
 ---
 
+## Running with Docker
+
+Convkit ships a multi-stage `Dockerfile` that builds the workspace and runs the
+Fastify server and the Next.js UI together in one container.
+
+**Requirements**
+
+- Docker 20.10+ (Compose v2 for the `docker compose` commands)
+
+### Single container
+
+```bash
+docker build -t convkit .
+docker run -p 3000:3000 -p 4000:4000 convkit
+```
+
+### Compose
+
+```bash
+docker compose up
+```
+
+Either way, open `http://localhost:3000` for the UI; the server is on
+`http://localhost:4000`.
+
+### ⚠️ Reaching Convkit from your bot's container
+
+When your bot runs in its own container on the same Compose network, it must
+reach Convkit by **service name**:
+
+```
+http://convkit:4000     ✅ correct
+http://localhost:4000    ❌ wrong
+```
+
+`localhost` inside a container refers to *that container itself*, not the host
+and not Convkit. A bot pointed at `http://localhost:4000` is talking to its own
+empty port and will silently fail to deliver replies.
+
+The same applies in reverse: register your bot's webhook with the address
+Convkit can reach it on — its service name, e.g. `http://bot:5000/webhook`, not
+`http://localhost:5000`.
+
+`docker-compose.yml` contains a commented-out `bot` service template showing
+this wiring.
+
+> This only affects container-to-container traffic. Your **browser** runs on the
+> host, so it correctly uses `http://localhost:3000` and `http://localhost:4000`.
+
+### ⚠️ You must publish ports 3000 and 4000 exactly
+
+Run the container with these port mappings and no others:
+
+```bash
+docker run -p 3000:3000 -p 4000:4000 convkit
+```
+
+**Remapping either port silently breaks the UI.** For example:
+
+```bash
+docker run -p 8080:3000 -p 4000:4000 convkit   # ❌ UI loads, then fails
+```
+
+The page will still load at `http://localhost:8080`, but every call it makes to
+the server — and the WebSocket that streams messages — will keep pointing at
+`http://localhost:4000`. Nothing logs an error in the container; the UI just
+sits there with no data.
+
+**Why:** the UI reads the server address from `NEXT_PUBLIC_SERVER` and
+`NEXT_PUBLIC_WS_URL`. Next.js inlines `NEXT_PUBLIC_*` values into the browser
+JavaScript bundle at **`next build`** time — they are compiled in, not read at
+runtime. Since the bundle is built when the image is built, the addresses are
+already fixed by the time you run the container, and `-p` cannot change them.
+Setting those variables with `docker run -e` has no effect for the same reason.
+
+The baked-in defaults are `http://localhost:4000` and `ws://localhost:4000/ws`,
+which is why host port 4000 specifically must map to container port 4000.
+
+To use different ports you would have to rebuild the image with new values
+(via build args) — not currently wired up.
+
+---
+
 ## Protocol
 
 Convkit uses a versioned event protocol over HTTP and WebSocket.

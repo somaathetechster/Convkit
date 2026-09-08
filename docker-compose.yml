@@ -1,0 +1,61 @@
+# Convkit — local development stack.
+#
+#   docker compose up
+#
+# Web UI:  http://localhost:3000
+# Server:  http://localhost:4000
+
+services:
+  convkit:
+    build:
+      context: .
+    image: convkit
+    ports:
+      - "3000:3000"   # Next.js UI
+      - "4000:4000"   # Fastify server
+    networks:
+      - convkit
+    healthcheck:
+      # node:20-slim has no curl, and Node 20 ships a global fetch, so probe
+      # the server's /health endpoint with node itself.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------
+  # Your bot. Uncomment and point `build` at your own bot directory.
+  #
+  # IMPORTANT — how your bot reaches Convkit:
+  # Inside the Docker network, address Convkit by its *service name*:
+  #
+  #     http://convkit:4000        <- correct
+  #     http://localhost:4000      <- WRONG
+  #
+  # `localhost` inside a container refers to that container itself, so a bot
+  # container pointed at localhost:4000 is talking to its own empty port, not
+  # to Convkit. The service name `convkit` resolves over the shared network
+  # below. Register your bot's webhook with Convkit using the address Convkit
+  # can reach it on, which is likewise the bot's service name, e.g.
+  # http://bot:5000/webhook.
+  # ---------------------------------------------------------------------
+  # bot:
+  #   build: ../my-bot
+  #   depends_on:
+  #     convkit:
+  #       condition: service_healthy
+  #   environment:
+  #     - CONVKIT_URL=http://convkit:4000
+  #   networks:
+  #     - convkit
+
+# Declared explicitly so both services share one named network and can resolve
+# each other by service name.
+networks:
+  convkit:
+    driver: bridge

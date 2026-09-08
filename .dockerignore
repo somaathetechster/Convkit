@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+.git
+.gitignore
+*.log
+.env*
+dist/
+coverage
+.turbo
+test-install/
+
+# Build artifacts that are regenerated inside the image
+apps/cli/server/
+**/__pycache__
+**/*.egg-info
