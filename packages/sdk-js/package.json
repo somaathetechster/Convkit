@@ -2,12 +2,27 @@
   "name": "@convkit/sdk",
   "version": "0.1.0",
   "description": "Convkit JavaScript/TypeScript SDK for bot developers",
-  "main": "src/index.ts",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@convkit/protocol": "workspace:*"
@@ -17,5 +32,11 @@
     "@types/node": "^20.19.43",
     "vitest": "^4.1.11"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/somaathetechster/Convkit.git"
+  },
+  "homepage": "https://github.com/somaathetechster/Convkit",
+  "keywords": ["whatsapp", "bot", "testing", "development", "convkit", "sdk"]
 }

@@ -1,12 +1,28 @@
 {
   "name": "@convkit/test-engine",
   "version": "0.1.0",
-  "description": "Convkit conversational test engine",
-  "main": "src/index.ts",
+  "description": "Convkit conversational test engine — write and run automated WhatsApp bot tests",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "typecheck": "tsc --noEmit"
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@convkit/protocol": "workspace:*"
@@ -15,5 +31,10 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/somaathetechster/Convkit.git"
+  },
+  "keywords": ["whatsapp", "bot", "testing", "convkit", "test-engine"]
 }

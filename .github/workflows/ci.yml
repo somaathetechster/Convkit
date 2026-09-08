@@ -29,6 +29,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Build protocol
+        run: cd packages/protocol && pnpm run build
+
+      - name: Build sdk
+        run: cd packages/sdk-js && pnpm run build
+
+      - name: Build test-engine
+        run: cd packages/test-engine && pnpm run build
+
+      - name: Build cli
+        run: cd apps/cli && pnpm run build
+
       - name: Type check server
         run: cd apps/server && pnpm exec tsc --noEmit
 
@@ -64,6 +76,3 @@ jobs:
 
       - name: Run sdk unit tests
         run: cd packages/sdk-js && pnpm test --run --passWithNoTests
-
-      - name: Build cli
-        run: cd apps/cli && pnpm exec tsc

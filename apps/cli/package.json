@@ -1,15 +1,24 @@
 {
   "name": "@convkit/cli",
   "version": "0.1.0",
-  "description": "Convkit command-line interface",
+  "description": "Convkit CLI — local development environment for WhatsApp bots",
   "type": "module",
   "bin": {
     "convkit": "./bin/convkit.js"
   },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@convkit/test-engine": "workspace:*",
@@ -21,5 +30,10 @@
     "tsx": "^4.23.12",
     "vitest": "^4.1.11"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/somaathetechster/Convkit.git"
+  },
+  "keywords": ["whatsapp", "bot", "convkit", "cli", "testing", "development"]
 }

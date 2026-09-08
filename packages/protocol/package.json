@@ -1,15 +1,35 @@
 {
   "name": "@convkit/protocol",
   "version": "0.1.0",
-  "description": "Convkit protocol types",
-  "main": "src/index.ts",
+  "description": "Convkit protocol types — shared TypeScript types for the Convkit ecosystem",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "prepublishOnly": "pnpm run build"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/somaathetechster/Convkit.git"
+  },
+  "keywords": ["whatsapp", "bot", "convkit", "protocol", "typescript"]
 }
