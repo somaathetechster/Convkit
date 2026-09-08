@@ -1,0 +1,25 @@
+{
+  "name": "@convkit/cli",
+  "version": "0.1.0",
+  "description": "Convkit command-line interface",
+  "type": "module",
+  "bin": {
+    "convkit": "./bin/convkit.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@convkit/test-engine": "workspace:*",
+    "@convkit/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^20.19.43",
+    "tsx": "^4.23.12",
+    "vitest": "^4.1.11"
+  },
+  "license": "MIT"
+}
