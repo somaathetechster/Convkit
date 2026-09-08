@@ -8,21 +8,22 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export const cliRoot = join(__dirname, '..', '..')
 
 export function findServerEntry(): string {
-  // When installed globally: server is bundled inside CLI package
-  const bundled = join(cliRoot, 'server', 'dist', 'index.js')
-  if (existsSync(bundled)) return bundled
-
-  // When running in the monorepo (dev mode): look for built server
-  const monorepoBuilt = join(cliRoot, '..', '..', 'apps', 'server', 'dist', 'index.js')
-  if (existsSync(monorepoBuilt)) return monorepoBuilt
-
-  // When running in the monorepo (dev mode with tsx): use source
+  // Monorepo takes priority — use live TypeScript source
   const monorepoSrc = join(cliRoot, '..', '..', 'apps', 'server', 'src', 'index.ts')
   if (existsSync(monorepoSrc)) return monorepoSrc
 
+  // Monorepo built output
+  const monorepoBuilt = join(cliRoot, '..', '..', 'apps', 'server', 'dist', 'index.js')
+  if (existsSync(monorepoBuilt)) return monorepoBuilt
+
+  // Global install fallback — bundled server inside CLI package
+  const bundled = join(cliRoot, 'server', 'dist', 'index.js')
+  if (existsSync(bundled)) return bundled
+
   throw new Error(
     'Cannot find Convkit server. ' +
-    'If running from the monorepo, build the server first: cd apps/server && pnpm build'
+    'If running from the monorepo, the server source should be at apps/server/src/index.ts. ' +
+    'If installed globally, try reinstalling: npm install -g @convkit/cli'
   )
 }
 

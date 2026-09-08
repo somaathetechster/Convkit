@@ -1,6 +1,11 @@
 import json
-import urllib.request
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import os
+import sys
+
+# Add the SDK to the path when running from the monorepo
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'sdks', 'python'))
+
+from convkit import ConvkitBot
 
 CONVKIT_SERVER = "http://localhost:4000"
 BOT_PORT = 5001
@@ -40,32 +45,11 @@ FEATURE_SECTIONS = [
     }
 ]
 
-
-def send(session_id: str, message: dict):
-    payload = json.dumps({"sessionId": session_id, "message": message}).encode()
-    req = urllib.request.Request(
-        f"{CONVKIT_SERVER}/api/v1/bot/message",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    urllib.request.urlopen(req)
+bot = ConvkitBot(emulator_url=CONVKIT_SERVER)
 
 
-def send_text(session_id: str, text: str):
-    send(session_id, {"type": "text", "text": text})
-
-
-def send_buttons(session_id: str, text: str, buttons: list):
-    send(session_id, {"type": "buttons", "text": text, "buttons": buttons})
-
-
-def send_list(session_id: str, text: str, button_text: str, sections: list):
-    send(session_id, {"type": "list", "text": text, "buttonText": button_text, "sections": sections})
-
-
-def send_help(session_id: str):
-    send_list(session_id, "Available commands:", "View commands", HELP_SECTIONS)
+async def send_help(session_id: str):
+    await bot.reply_list(session_id, "Available commands:", "View commands", HELP_SECTIONS)
 
 
 def format_value(value) -> str:
@@ -76,86 +60,71 @@ def format_value(value) -> str:
     return str(value)
 
 
-def send_status(session_id: str, user: dict):
+async def send_status(session_id: str, user: dict):
     metadata = (user or {}).get("metadata") or {}
     if not metadata:
-        send_text(
+        await bot.reply_text(
             session_id,
             "No state set for this user. Try adding metadata in Convkit when creating a user.",
         )
         return
     lines = [f"• {key}: {format_value(value)}" for key, value in metadata.items()]
-    send_text(session_id, "User state:\n" + "\n".join(lines))
+    await bot.reply_text(session_id, "User state:\n" + "\n".join(lines))
 
 
-class WebhookHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        print(f"[Bot] {format % args}")
+@bot.on("message")
+async def handle_message(event):
+    message = event.get("message") or {}
+    session_id = event["sessionId"]
+    text = (message.get("text") or "").lower().strip()
 
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length)
+    if text in ("hello", "hi"):
+        await bot.reply_text(session_id, "Hello! 👋 Welcome to the Convkit demo bot.")
+        await bot.reply_buttons(session_id, "What would you like to do?", [
+            {"id": "features", "title": "Features"},
+            {"id": "about", "title": "About"},
+            {"id": "help", "title": "Help"},
+        ])
+    elif text == "ping":
+        await bot.reply_text(session_id, "Pong! 🏓")
+    elif text == "help":
+        await send_help(session_id)
+    elif text == "status":
+        await send_status(session_id, event.get("user") or {})
+    elif text == "about":
+        await bot.reply_text(session_id, ABOUT_TEXT)
+    else:
+        await bot.reply_text(session_id, "Unknown command. Send 'hello' to get started.")
 
-        try:
-            event = json.loads(body)
-        except json.JSONDecodeError:
-            self.send_response(400)
-            self.end_headers()
-            return
 
-        session_id = event.get("sessionId")
-        message = event.get("message") or {}
-        user = event.get("user") or {}
-        event_type = event.get("event")
+@bot.on("button.clicked")
+async def handle_button(event):
+    message = event.get("message") or {}
+    session_id = event["sessionId"]
+    button_id = message.get("buttonId")
 
-        print(f"[Bot] {event_type} → {message!r}")
+    if button_id == "features":
+        await bot.reply_list(
+            session_id, "Convkit supports these message types:", "View features", FEATURE_SECTIONS
+        )
+    elif button_id == "about":
+        await bot.reply_text(session_id, ABOUT_TEXT)
+    elif button_id == "help":
+        await send_help(session_id)
 
-        if event_type == "message.received":
-            text = (message.get("text") or "").lower().strip()
 
-            if text in ("hello", "hi"):
-                send_text(session_id, "Hello! 👋 Welcome to the Convkit demo bot.")
-                send_buttons(session_id, "What would you like to do?", [
-                    {"id": "features", "title": "Features"},
-                    {"id": "about", "title": "About"},
-                    {"id": "help", "title": "Help"},
-                ])
-            elif text == "ping":
-                send_text(session_id, "Pong! 🏓")
-            elif text == "help":
-                send_help(session_id)
-            elif text == "status":
-                send_status(session_id, user)
-            elif text == "about":
-                send_text(session_id, ABOUT_TEXT)
-            else:
-                send_text(session_id, "Unknown command. Send 'hello' to get started.")
-
-        elif event_type == "button.clicked":
-            button_id = message.get("buttonId")
-
-            if button_id == "features":
-                send_list(session_id, "Convkit supports these message types:", "View features", FEATURE_SECTIONS)
-            elif button_id == "about":
-                send_text(session_id, ABOUT_TEXT)
-            elif button_id == "help":
-                send_help(session_id)
-
-        elif event_type == "list.selected":
-            item_title = message.get("itemTitle")
-            send_text(
-                session_id,
-                f"You selected: {item_title}. This is how list selections work in Convkit.",
-            )
-
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(b'{"ok": true}')
+@bot.on("list.selected")
+async def handle_list(event):
+    message = event.get("message") or {}
+    session_id = event["sessionId"]
+    item_title = message.get("itemTitle")
+    await bot.reply_text(
+        session_id,
+        f"You selected: {item_title}. This is how list selections work in Convkit.",
+    )
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", BOT_PORT), WebhookHandler)
     print(f"Python bot running on http://localhost:{BOT_PORT}")
     print(f"Register it in Convkit at: http://localhost:{BOT_PORT}/webhook")
-    server.serve_forever()
+    bot.listen(BOT_PORT)
