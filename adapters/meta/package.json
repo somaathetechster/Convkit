@@ -1,0 +1,26 @@
+{
+  "name": "@convkit/adapter-meta",
+  "version": "0.1.0",
+  "description": "Convkit adapter for Meta (WhatsApp Cloud API) bots",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@convkit/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^20.19.43",
+    "vitest": "^4.1.11"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/somaathetechster/Convkit.git"
+  },
+  "keywords": ["whatsapp", "bot", "convkit", "meta", "whatsapp-cloud-api", "adapter"]
+}

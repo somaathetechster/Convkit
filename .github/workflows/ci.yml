@@ -59,6 +59,18 @@ jobs:
           pnpm exec tsc --noEmit
           pnpm exec tsc -p tsconfig.test.json --noEmit
 
+      - name: Type check adapter-infobip
+        run: |
+          cd adapters/infobip
+          pnpm exec tsc --noEmit
+          pnpm exec tsc -p tsconfig.test.json --noEmit
+
+      - name: Type check adapter-meta
+        run: |
+          cd adapters/meta
+          pnpm exec tsc --noEmit
+          pnpm exec tsc -p tsconfig.test.json --noEmit
+
       - name: Build server
         run: cd apps/server && pnpm exec tsc
 
@@ -76,3 +88,9 @@ jobs:
 
       - name: Run sdk unit tests
         run: cd packages/sdk-js && pnpm test --run --passWithNoTests
+
+      - name: Run adapter-infobip tests
+        run: cd adapters/infobip && pnpm test --run
+
+      - name: Run adapter-meta tests
+        run: cd adapters/meta && pnpm test --run
