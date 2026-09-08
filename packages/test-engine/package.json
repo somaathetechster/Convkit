@@ -1,6 +1,6 @@
 {
   "name": "@convkit/test-engine",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Convkit conversational test engine — write and run automated WhatsApp bot tests",
   "type": "module",
   "main": "./dist/index.js",
