@@ -42,7 +42,10 @@ jobs:
         run: cd apps/cli && pnpm exec tsc --noEmit
 
       - name: Type check sdk
-        run: cd packages/sdk-js && pnpm exec tsc --noEmit
+        run: |
+          cd packages/sdk-js
+          pnpm exec tsc --noEmit
+          pnpm exec tsc -p tsconfig.test.json --noEmit
 
       - name: Build server
         run: cd apps/server && pnpm exec tsc
