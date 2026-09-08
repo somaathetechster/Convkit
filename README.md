@@ -94,20 +94,36 @@ Convkit Server (TypeScript)
   Bot   Bot    Bot
 ```
 
-**First-class SDK support** *(planned)*: JavaScript/TypeScript, Python  
+**First-class SDK support** *(available now)*: JavaScript/TypeScript, Python  
 **Community SDK support** *(planned)*: Go, Java, PHP, C#, Rust
 
-> SDKs are planned. In the interim, any language that can make HTTP requests or open a WebSocket connection can communicate with Convkit directly.
+```bash
+npm install --save-dev @convkit/sdk   # JavaScript / TypeScript
+pip install convkit                   # Python
+```
+
+> Any language that can make HTTP requests or open a WebSocket connection can communicate with Convkit directly, with or without an SDK.
 
 ---
 
 ## Quick Start
 
-> ⚠️ Convkit is in early development. The setup below reflects the intended local development experience. Full instructions will be added as the initial implementation stabilizes.
+> Convkit's core platform, SDKs, CLI, provider adapters, and Docker support are functional and published. Persistent storage (PostgreSQL/Redis) and the plugin system are still in progress.
+
+### Option A: Install from npm
+
+```bash
+npm install -g @convkit/cli
+convkit dev
+```
+
+This works from any directory — no clone of this repository is required.
+
+### Option B: Run from source *(contributors)*
 
 **Requirements**
 
-- Node.js 20+
+- Node.js 22+
 - pnpm
 
 ```bash
@@ -116,6 +132,16 @@ cd convkit
 pnpm install
 pnpm dev
 ```
+
+### Option C: Docker
+
+From a clone of this repository:
+
+```bash
+docker build -t convkit . && docker run -p 3000:3000 -p 4000:4000 convkit
+```
+
+> ⚠️ Ports must be published as exactly 3000 and 4000. See [Running with Docker](#running-with-docker) below for details.
 
 Then open `http://localhost:3000`.
 
@@ -251,19 +277,19 @@ convkit/
 ├── apps/
 │   ├── web/          # Browser emulator (React / Next.js)
 │   ├── server/       # Emulator server (Node.js / Fastify)
-│   └── cli/          # CLI (planned)
+│   └── cli/          # CLI
 │
 ├── packages/
 │   ├── protocol/     # Protocol types and schemas
 │   ├── schemas/      # JSON Schema definitions
-│   ├── sdk-js/       # JavaScript / TypeScript SDK (planned)
-│   ├── test-engine/  # Automated test runner (planned)
+│   ├── sdk-js/       # JavaScript / TypeScript SDK
+│   ├── test-engine/  # Automated test runner
 │   └── shared/       # Shared utilities
 │
 ├── sdks/
-│   └── python/       # Python SDK (planned)
+│   └── python/       # Python SDK
 │
-├── adapters/         # Provider adapters (planned)
+├── adapters/         # Provider adapters (Infobip, Meta)
 │
 ├── examples/
 │   ├── node-bot/
@@ -286,54 +312,56 @@ convkit/
 |---|---|
 | Frontend | React, Next.js, TypeScript, Tailwind CSS |
 | Backend | Node.js, Fastify, TypeScript |
-| Real-time | WebSocket / Socket.IO |
+| Real-time | WebSocket (@fastify/websocket) |
 | Protocol | HTTP + WebSocket + JSON + JSON Schema |
 | Testing | Vitest, Playwright |
 | Package management | pnpm |
 
-Future infrastructure (PostgreSQL, Redis, Docker) will be introduced progressively as the project grows. None of it is required to run Convkit locally.
+PostgreSQL, Redis, and the plugin system are planned but not yet implemented. Docker is done — see [Running with Docker](#running-with-docker) below. None of it is required to run Convkit locally.
 
 ---
 
 ## Roadmap
 
-### Phase 1 — Local Emulator *(current)*
-- [ ] Core server architecture
-- [ ] Browser emulator UI
-- [ ] Virtual user simulation
-- [ ] Text message support
-- [ ] Session management
-- [ ] Event inspector
-- [ ] Convkit protocol v1
-- [ ] Node.js example bot
-- [ ] Python compatibility example
-- [ ] Unit, integration, and E2E tests
+### Phase 1 — Local Emulator
+- [x] Core server architecture
+- [x] Browser emulator UI
+- [x] Virtual user simulation
+- [x] Text message support
+- [x] Session management
+- [x] Event inspector
+- [x] Convkit protocol v1
+- [x] Node.js example bot
+- [x] Python compatibility example
+- [x] Unit, integration, and E2E tests
 
 ### Phase 2 — Rich Conversations
-- [ ] Buttons and interactive messages
-- [ ] List messages
+- [x] Buttons and interactive messages
+- [x] List messages
 - [ ] Media, location, document support
-- [ ] Multiple concurrent users
-- [ ] User state injection
-- [ ] Network inspector
-- [ ] Conversation recording
-- [ ] Conversation replay
+- [x] Multiple concurrent users
+- [x] User state injection
+- [x] Network inspector
+- [x] Conversation recording
+- [x] Conversation replay
 
 ### Phase 3 — Automated Testing
-- [ ] Test scenario definitions
-- [ ] Assertions
-- [ ] Test suites and reports
-- [ ] CLI
-- [ ] Headless mode
-- [ ] CI/CD integration
+- [x] Test scenario definitions
+- [x] Assertions
+- [x] Test suites and reports
+- [x] CLI
+- [x] Headless mode
+- [x] CI/CD integration
 
-### Phase 4 — Ecosystem
-- [ ] JavaScript / TypeScript SDK
-- [ ] Python SDK
-- [ ] Provider adapters (Meta, Infobip, Twilio)
+### Phase 4 — Ecosystem *(current)*
+- [x] JavaScript / TypeScript SDK
+- [x] Python SDK
+- [x] Provider adapters (Meta, Infobip)
+- [ ] Provider adapter (Twilio)
 - [ ] Plugin system
-- [ ] Docker support
+- [x] Docker support
 - [ ] Persistent storage (PostgreSQL)
+- [ ] Redis (for real-time event pub/sub or session caching — scope TBD)
 
 ### Phase 5 — Advanced Testing
 - [ ] AI-assisted test generation *(optional, no API key required for core)*
