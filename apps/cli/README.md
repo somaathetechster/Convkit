@@ -51,6 +51,17 @@ Options:
 
 Print the installed version.
 
+## How it works
+
+When installed globally, `convkit server` and `convkit dev` start the Convkit server
+that is bundled inside the CLI package. No separate installation is needed.
+
+When running from the Convkit monorepo (for development), the commands use the
+monorepo's server directly.
+
+The web UI ships only with the monorepo. Running `convkit dev` from a global install
+starts the server and reports that the UI is unavailable; clone the repo if you want it.
+
 ## Requirements
 
 - Node.js 18+

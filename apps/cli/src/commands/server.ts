@@ -1,15 +1,12 @@
 import { spawn } from 'child_process'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const repoRoot = join(__dirname, '..', '..', '..', '..')
+import { resolveServerProcess } from './_server-entry.js'
 
 export async function serverCommand(_flags: string[]): Promise<void> {
   console.log('Starting Convkit server...')
 
-  const server = spawn('pnpm', ['dev'], {
-    cwd: join(repoRoot, 'apps', 'server'),
+  const { cmd, args } = resolveServerProcess()
+
+  const server = spawn(cmd, args, {
     stdio: 'inherit',
     env: { ...process.env }
   })

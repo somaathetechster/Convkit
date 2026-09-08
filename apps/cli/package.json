@@ -9,6 +9,8 @@
   "files": [
     "bin",
     "dist",
+    "server",
+    "scripts",
     "README.md"
   ],
   "engines": {
@@ -17,12 +19,17 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "vitest",
-    "prepublishOnly": "pnpm run build"
+    "bundle": "node scripts/bundle-server.mjs",
+    "prepublishOnly": "pnpm run build && node scripts/bundle-server.mjs",
+    "test": "vitest"
   },
   "dependencies": {
     "@convkit/test-engine": "workspace:*",
-    "@convkit/protocol": "workspace:*"
+    "@convkit/protocol": "workspace:*",
+    "fastify": "^5.12.1",
+    "@fastify/websocket": "^11.3.0",
+    "@fastify/cors": "^11.3.0",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
