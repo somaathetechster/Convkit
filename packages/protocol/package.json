@@ -8,5 +8,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
   "license": "MIT"
 }

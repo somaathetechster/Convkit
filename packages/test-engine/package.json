@@ -5,10 +5,14 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@convkit/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   },
   "license": "MIT"
 }

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]  
+    branches: [main]
 
 jobs:
   ci:
@@ -30,13 +30,19 @@ jobs:
         run: pnpm install
 
       - name: Type check server
-        run: cd apps/server && npx tsc --noEmit
+        run: cd apps/server && pnpm exec tsc --noEmit
 
       - name: Type check protocol
-        run: cd packages/protocol && npx tsc --noEmit
+        run: cd packages/protocol && pnpm exec tsc --noEmit
+
+      - name: Type check test-engine
+        run: cd packages/test-engine && pnpm exec tsc --noEmit
+
+      - name: Type check cli
+        run: cd apps/cli && pnpm exec tsc --noEmit
 
       - name: Build server
-        run: cd apps/server && npx tsc
+        run: cd apps/server && pnpm exec tsc
 
       - name: Build web
         run: cd apps/web && pnpm build
