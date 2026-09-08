@@ -4,11 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "tsx test-example.ts"
+    "test": "tsx test-example.ts",
+    "bot": "tsx node-bot/index.mjs",
+    "python-bot": "python3 python-bot/main.py"
   },
   "dependencies": {
     "@convkit/test-engine": "workspace:*",
-    "@convkit/protocol": "workspace:*"
+    "@convkit/protocol": "workspace:*",
+    "@convkit/sdk": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.23.12"

@@ -7,7 +7,7 @@ any particular product.
 It exercises every message type Convkit supports: text, buttons, lists, and
 state injection.
 
-No external dependencies — uses Node.js stdlib only.
+Built on `@convkit/sdk`, the Convkit JavaScript/TypeScript SDK.
 
 ## Requirements
 
@@ -17,8 +17,25 @@ No external dependencies — uses Node.js stdlib only.
 ## Run
 
 ```bash
-node index.mjs
+cd ~/Convkit
+examples/node_modules/.bin/tsx examples/node-bot/index.mjs
 ```
+
+Or from the examples directory:
+
+```bash
+cd ~/Convkit/examples
+npx tsx node-bot/index.mjs
+```
+
+Or, using the workspace script:
+
+```bash
+cd ~/Convkit/examples
+pnpm bot
+```
+
+The bot now uses `@convkit/sdk` which is TypeScript, so it requires tsx to run.
 
 The bot starts on `http://localhost:5000`.
 
@@ -76,5 +93,6 @@ the session ID, without recreating the user.
 ## How it works
 
 Convkit sends a POST request to `/webhook` every time the virtual user acts.
-The bot reads the event, decides on a response, and POSTs back to
+The SDK routes the event to the matching `bot.on(...)` handler, and the
+`bot.replyText` / `replyButtons` / `replyList` helpers POST the response back to
 `http://localhost:4000/api/v1/bot/message`.

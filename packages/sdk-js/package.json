@@ -1,18 +1,20 @@
 {
-  "name": "@convkit/test-engine",
+  "name": "@convkit/sdk",
   "version": "0.1.0",
-  "description": "Convkit conversational test engine",
+  "description": "Convkit JavaScript/TypeScript SDK for bot developers",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "test": "vitest",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
   },
   "dependencies": {
     "@convkit/protocol": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
+    "@types/node": "^20.19.43",
     "vitest": "^4.1.11"
   },
   "license": "MIT"

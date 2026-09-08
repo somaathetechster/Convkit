@@ -1,4 +1,11 @@
+import { readFileSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { commands } from './commands/index.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'))
+const VERSION: string = pkg.version
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -29,7 +36,7 @@ if (!command || command === 'help' || command === '--help' || command === '-h') 
 }
 
 if (command === 'version' || command === '--version' || command === '-v') {
-  console.log('0.1.0')
+  console.log(VERSION)
   process.exit(0)
 }
 
