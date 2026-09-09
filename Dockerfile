@@ -64,6 +64,17 @@ ENV NODE_ENV=production
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
+# Read at runtime by apps/web/app/api/config/route.ts and served to the browser
+# from /api/config, so the UI's server address is no longer fixed at build time.
+# Override with `docker run -e CONVKIT_SERVER_URL=... -e CONVKIT_WS_URL=...`.
+ENV CONVKIT_SERVER_URL=http://localhost:4000
+ENV CONVKIT_WS_URL=ws://localhost:4000/ws
+
+# The server's CORS allowlist. Must match the origin the browser loads the UI
+# from. The container cannot discover its own published host port, so remapping
+# the UI port still requires overriding this at run time.
+ENV WEB_URL=http://localhost:3000
+
 WORKDIR /app
 
 # Same absolute path as the builder, so the pnpm symlinks resolve.

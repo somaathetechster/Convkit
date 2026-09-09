@@ -141,7 +141,7 @@ From a clone of this repository:
 docker build -t convkit . && docker run -p 3000:3000 -p 4000:4000 convkit
 ```
 
-> ⚠️ Ports must be published as exactly 3000 and 4000. See [Running with Docker](#running-with-docker) below for details.
+> Publishing on other ports works too — see [Running with Docker](#running-with-docker) below.
 
 Then open `http://localhost:3000`.
 
@@ -198,37 +198,42 @@ this wiring.
 > This only affects container-to-container traffic. Your **browser** runs on the
 > host, so it correctly uses `http://localhost:3000` and `http://localhost:4000`.
 
-### ⚠️ You must publish ports 3000 and 4000 exactly
+### Publishing on different ports
 
-Run the container with these port mappings and no others:
+Default ports:
 
 ```bash
 docker run -p 3000:3000 -p 4000:4000 convkit
 ```
 
-**Remapping either port silently breaks the UI.** For example:
+Custom ports work too — pass the addresses the **browser** will use:
 
 ```bash
-docker run -p 8080:3000 -p 4000:4000 convkit   # ❌ UI loads, then fails
+docker run -p 8080:3000 -p 9000:4000 \
+  -e CONVKIT_SERVER_URL=http://localhost:9000 \
+  -e CONVKIT_WS_URL=ws://localhost:9000/ws \
+  -e WEB_URL=http://localhost:8080 \
+  convkit
 ```
 
-The page will still load at `http://localhost:8080`, but every call it makes to
-the server — and the WebSocket that streams messages — will keep pointing at
-`http://localhost:4000`. Nothing logs an error in the container; the UI just
-sits there with no data.
+**How it works:** the UI fetches `/api/config` on load and uses the
+`serverUrl` / `wsUrl` it returns. That route is server-rendered on every
+request, so it reads `CONVKIT_SERVER_URL` and `CONVKIT_WS_URL` from the
+container environment at runtime. Nothing about the server address is
+compiled into the JavaScript bundle, so `-e` at `docker run` time is enough
+and no rebuild is needed.
 
-**Why:** the UI reads the server address from `NEXT_PUBLIC_SERVER` and
-`NEXT_PUBLIC_WS_URL`. Next.js inlines `NEXT_PUBLIC_*` values into the browser
-JavaScript bundle at **`next build`** time — they are compiled in, not read at
-runtime. Since the bundle is built when the image is built, the addresses are
-already fixed by the time you run the container, and `-p` cannot change them.
-Setting those variables with `docker run -e` has no effect for the same reason.
+**Why `WEB_URL` is still in that list.** It is the server's CORS allowlist, and
+it must match the origin the browser loads the UI from — `http://localhost:8080`
+above. Get it wrong and the URLs are all correct but the browser blocks every
+API response.
 
-The baked-in defaults are `http://localhost:4000` and `ws://localhost:4000/ws`,
-which is why host port 4000 specifically must map to container port 4000.
-
-To use different ports you would have to rebuild the image with new values
-(via build args) — not currently wired up.
+The image defaults it to `http://localhost:3000`, so the default run needs no
+environment variables at all. It cannot be defaulted any better than that:
+Docker does not tell a container which host port it was published on, so when
+you remap the UI port the container has no way to infer the new origin. That
+makes `-e WEB_URL` the one variable you must still set by hand whenever you
+change the UI's host port.
 
 ---
 

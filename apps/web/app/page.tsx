@@ -2,9 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const SERVER = process.env.NEXT_PUBLIC_SERVER ?? 'http://localhost:4000'
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:4000/ws'
-
 interface User {
   id: string
   name: string
@@ -343,6 +340,12 @@ export default function Home() {
   const [leftWidth, setLeftWidth] = useState(256)
   const [rightWidth, setRightWidth] = useState(320)
 
+  // Server URLs come from /api/config at runtime, not from NEXT_PUBLIC_* build
+  // args, so the same image works whatever ports it is published on. Empty
+  // until that fetch settles, which gates the connect effect below.
+  const [serverUrl, setServerUrl] = useState('')
+  const [wsUrl, setWsUrl] = useState('')
+
   const ws = useRef<WebSocket | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const seenIds = useRef<Set<string>>(new Set())
@@ -371,7 +374,25 @@ export default function Home() {
     setRightWidth(w => Math.max(220, Math.min(600, w - delta)))
   })
 
-  useEffect(() => { connectWS(); fetchRecordings() }, [])
+  useEffect(() => {
+    fetch('/api/config')
+      .then(r => r.json())
+      .then(cfg => {
+        setServerUrl(cfg.serverUrl)
+        setWsUrl(cfg.wsUrl)
+      })
+      .catch(() => {
+        // Fall back to the local defaults if the config fetch fails
+        setServerUrl('http://localhost:4000')
+        setWsUrl('ws://localhost:4000/ws')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!wsUrl) return
+    connectWS()
+    fetchRecordings()
+  }, [wsUrl])
 
   useEffect(() => { sessionsRef.current = sessions }, [sessions])
 
@@ -391,7 +412,7 @@ export default function Home() {
   }, [])
 
   function connectWS() {
-    const socket = new WebSocket(WS_URL)
+    const socket = new WebSocket(wsUrl)
     socket.onopen = () => { setConnected(true); setWsStatus('Connected') }
     socket.onclose = () => {
       setConnected(false)
@@ -457,7 +478,7 @@ export default function Home() {
     if (!userForm.name.trim() || !phoneNumber.trim()) return
     setLoadingUser(true)
     try {
-      const res = await fetch(`${SERVER}/api/v1/users`, {
+      const res = await fetch(`${serverUrl}/api/v1/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -488,7 +509,7 @@ export default function Home() {
   async function registerBot() {
     setLoadingBot(true)
     try {
-      await fetch(`${SERVER}/api/v1/bots`, {
+      await fetch(`${serverUrl}/api/v1/bots`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'My Bot', webhookUrl: botUrl })
@@ -505,7 +526,7 @@ export default function Home() {
     setInput('')
     setLoadingSend(true)
     try {
-      await fetch(`${SERVER}/api/v1/messages`, {
+      await fetch(`${serverUrl}/api/v1/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: activeUser.id, message: { type: 'text', text } })
@@ -517,7 +538,7 @@ export default function Home() {
 
   async function resetSession() {
     if (!activeSession || !activeUserId) return
-    const res = await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/reset`, { method: 'POST' })
+    const res = await fetch(`${serverUrl}/api/v1/sessions/${activeSession.id}/reset`, { method: 'POST' })
     if (res.ok) {
       setMessagesByUser(prev => ({ ...prev, [activeUserId]: [] }))
       seenIds.current.clear()
@@ -526,14 +547,14 @@ export default function Home() {
   }
 
   async function fetchRecordings() {
-    const res = await fetch(`${SERVER}/api/v1/recordings`)
+    const res = await fetch(`${serverUrl}/api/v1/recordings`)
     const data = await res.json()
     setRecordings(data)
   }
 
   async function startRecording() {
     if (!activeSession || !recordingName.trim()) return
-    await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/record/start`, {
+    await fetch(`${serverUrl}/api/v1/sessions/${activeSession.id}/record/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: recordingName.trim() })
@@ -542,26 +563,26 @@ export default function Home() {
 
   async function stopRecording() {
     if (!activeSession) return
-    await fetch(`${SERVER}/api/v1/sessions/${activeSession.id}/record/stop`, {
+    await fetch(`${serverUrl}/api/v1/sessions/${activeSession.id}/record/stop`, {
       method: 'POST'
     })
   }
 
   async function replayRecording(recordingId: string) {
     setReplayingId(recordingId)
-    await fetch(`${SERVER}/api/v1/recordings/${recordingId}/replay`, {
+    await fetch(`${serverUrl}/api/v1/recordings/${recordingId}/replay`, {
       method: 'POST'
     })
   }
 
   async function deleteRecording(recordingId: string) {
-    await fetch(`${SERVER}/api/v1/recordings/${recordingId}`, { method: 'DELETE' })
+    await fetch(`${serverUrl}/api/v1/recordings/${recordingId}`, { method: 'DELETE' })
     fetchRecordings()
   }
 
   async function clickButton(buttonId: string, buttonTitle: string) {
     if (!activeUser) return
-    await fetch(`${SERVER}/api/v1/button`, {
+    await fetch(`${serverUrl}/api/v1/button`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: activeUser.id, buttonId, buttonTitle })
@@ -570,7 +591,7 @@ export default function Home() {
 
   async function selectListItem(itemId: string, itemTitle: string) {
     if (!activeUser) return
-    await fetch(`${SERVER}/api/v1/list`, {
+    await fetch(`${serverUrl}/api/v1/list`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: activeUser.id, itemId, itemTitle })
@@ -774,7 +795,7 @@ export default function Home() {
                       if (!key) return
                       const value = prompt('Value:')
                       if (value === null) return
-                      await fetch(`${SERVER}/api/v1/users/${activeUser.id}/metadata`, {
+                      await fetch(`${serverUrl}/api/v1/users/${activeUser.id}/metadata`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ metadata: { [key]: value } })
@@ -793,7 +814,7 @@ export default function Home() {
                     <span className="text-[10px] text-zinc-400 truncate flex-1">{k}: <span className="text-zinc-300">{String(v)}</span></span>
                     <button
                       onClick={async () => {
-                        await fetch(`${SERVER}/api/v1/users/${activeUser.id}/metadata/${encodeURIComponent(k)}`, {
+                        await fetch(`${serverUrl}/api/v1/users/${activeUser.id}/metadata/${encodeURIComponent(k)}`, {
                           method: 'DELETE'
                         })
                       }}
