@@ -15,6 +15,14 @@ services:
       - "4000:4000"   # Fastify server
     networks:
       - convkit
+    environment:
+      # Served to the browser at runtime via /api/config, so the UI's server
+      # address is no longer compiled into the JS bundle. Override in a .env
+      # file or the shell to publish on different host ports.
+      - CONVKIT_SERVER_URL=${CONVKIT_SERVER_URL:-http://localhost:4000}
+      - CONVKIT_WS_URL=${CONVKIT_WS_URL:-ws://localhost:4000/ws}
+      # Server-side CORS allowlist; must match the browser's origin.
+      - WEB_URL=${WEB_URL:-http://localhost:3000}
     healthcheck:
       # node:20-slim has no curl, and Node 20 ships a global fetch, so probe
       # the server's /health endpoint with node itself.
