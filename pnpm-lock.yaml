@@ -257,6 +257,12 @@ importers:
 
   apps/cli:
     dependencies:
+      '@convkit/adapter-infobip':
+        specifier: workspace:*
+        version: link:../../adapters/infobip
+      '@convkit/adapter-meta':
+        specifier: workspace:*
+        version: link:../../adapters/meta
       '@convkit/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
