@@ -24,6 +24,8 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@convkit/adapter-infobip": "workspace:*",
+    "@convkit/adapter-meta": "workspace:*",
     "@convkit/test-engine": "workspace:*",
     "@convkit/protocol": "workspace:*",
     "fastify": "^5.12.1",

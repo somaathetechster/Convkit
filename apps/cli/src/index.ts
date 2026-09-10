@@ -21,6 +21,11 @@ function printHelp() {
   console.log('  convkit test [pattern]   Run test files')
   console.log('  convkit version          Print version')
   console.log('')
+  console.log('Options for convkit dev/server:')
+  console.log('  --adapter <infobip|meta> Start a provider adapter')
+  console.log('  --bot <url>              Existing bot webhook URL (required with --adapter)')
+  console.log('  --adapter-port <port>    Adapter port (default: 6000)')
+  console.log('')
   console.log('Options for convkit test:')
   console.log('  --server <url>           Convkit server URL (default: http://localhost:4000)')
   console.log('  --bot <url>              Bot webhook URL (default: http://localhost:5000/webhook)')
@@ -47,4 +52,9 @@ if (!handler) {
   process.exit(1)
 }
 
-await handler(flags)
+try {
+  await handler(flags)
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error)
+  process.exitCode = 1
+}

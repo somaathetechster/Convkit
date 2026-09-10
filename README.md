@@ -147,6 +147,43 @@ Then open `http://localhost:3000`.
 
 Start your bot locally (example: a Node.js bot listening on port 5000), register it with Convkit, and begin testing.
 
+### Run a real provider bot with an adapter
+
+The CLI can start the Convkit server, web UI, and an existing provider adapter, then register the adapter endpoint after
+the server is ready. Your bot URL remains the webhook URL used by the adapter, so the bot code does not need to change.
+
+```bash
+convkit dev --adapter infobip --bot http://localhost:5000/webhook
+```
+
+This starts the server on port 4000, the UI on port 3000, and the Infobip adapter on port 6000. The supplied bot webhook
+is registered with the adapter automatically.
+
+Meta bots use the same workflow:
+
+```bash
+convkit dev --adapter meta --bot http://localhost:5000/webhook
+```
+
+Choose a different adapter port when needed:
+
+```bash
+convkit dev \
+  --adapter infobip \
+  --bot http://localhost:5000/webhook \
+  --adapter-port 7000
+```
+
+To run the server and adapter without the web UI, use the equivalent server command:
+
+```bash
+convkit server --adapter infobip --bot http://localhost:5000/webhook
+convkit server --adapter meta --bot http://localhost:5000/webhook
+```
+
+The adapter receives Convkit protocol events from the server and translates them to the provider format before forwarding
+them to your bot. `--adapter-port` defaults to 6000.
+
 ---
 
 ## Running with Docker
